@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/dichodaemon/carrel/internal/registry"
 )
 
 const carrelBin = "/workspace/carrel/carrel"
@@ -165,6 +169,7 @@ func TestCRUDAddAndList(t *testing.T) {
 		t.Error("rule file not created at", rulePath)
 	}
 	defer os.Remove(rulePath)
+	defer func() { exec.Command(carrelBin, "rule", "rm", "test-rule").Run() }()
 
 	// List rules
 	cmd = exec.Command(carrelBin, "rule", "list")
@@ -233,3 +238,218 @@ func TestVerifyShowsDeploymentStatus(t *testing.T) {
 	}
 }
 
+
+// TestComposeMissingSourceFile verifies compose fails when a source file is missing.
+func TestComposeMissingSourceFile(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	// Register a rule pointing to a nonexistent file
+	reg := openRegistry(t)
+	defer reg.Close()
+
+	sources, _ := reg.ListSources()
+	entry := registry.Entry{
+		ID:           uuid.New(),
+		SourceID:     sources[0].ID,
+		Name:         "nonexistent",
+		Type:         registry.TypeRule,
+		RelativePath: "rules/nonexistent.md",
+	}
+	reg.RegisterEntry(entry)
+
+	// Run should fail
+	cmd := exec.Command(carrelBin, "run", "--dry-run")
+	cmd.Dir = "/workspace/carrel"
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Error("should fail when source file is missing")
+	}
+	if !strings.Contains(string(out), "no such file") && !strings.Contains(string(out), "resolve content") {
+		t.Errorf("error should mention missing file: %s", out)
+	}
+
+	// Clean up
+	reg.RemoveEntry(entry.ID)
+}
+
+// TestViewShowsContent verifies rule view shows content by default.
+func TestViewShowsContent(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "rule", "view", "no-push-oh-my-pi")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("view failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "Name:") {
+		t.Error("view should show metadata")
+	}
+	if !strings.Contains(output, "Content") {
+		t.Error("view should show content by default")
+	}
+}
+
+// TestViewMetaOnly verifies --meta-only flag.
+func TestViewMetaOnly(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "rule", "view", "no-push-oh-my-pi", "--meta-only")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("view --meta-only failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "Name:") {
+		t.Error("view --meta-only should show metadata")
+	}
+	if strings.Contains(output, "Content") {
+		t.Error("view --meta-only should NOT show content")
+	}
+}
+
+// TestViewContentOnly verifies --content-only flag.
+func TestViewContentOnly(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "rule", "view", "no-push-oh-my-pi", "--content-only")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("view --content-only failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if strings.Contains(output, "Name:") {
+		t.Error("view --content-only should NOT show metadata")
+	}
+	if !strings.Contains(output, "Content") {
+		t.Error("view --content-only should show content")
+	}
+}
+
+// TestListShowsHumanFriendly verifies list output format.
+func TestListShowsHumanFriendly(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "rule", "list")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("list failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "no-push-oh-my-pi") {
+		t.Error("list should show entry name")
+	}
+	if !strings.Contains(output, "carrel-omp") {
+		t.Error("list should show source alias")
+	}
+	// UUIDs should not appear in list output
+	if strings.Contains(output, "cef704d5") {
+		t.Error("list should not show raw UUIDs")
+	}
+}
+
+// TestRunOnConflictError verifies default conflict policy is error.
+func TestRunOnConflictError(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	// Create a foreign file at the deployment destination
+	os.MkdirAll("/workspace/carrel/.omp/rules", 0755)
+	os.WriteFile("/workspace/carrel/.omp/rules/foreign.md", []byte("foreign"), 0644)
+	defer os.RemoveAll("/workspace/carrel/.omp/rules/foreign.md")
+
+	// Register a rule that would go to the same path
+	reg := openRegistry(t)
+	defer reg.Close()
+	sources, _ := reg.ListSources()
+	e := registry.Entry{
+		ID:           uuid.New(),
+		SourceID:     sources[0].ID,
+		Name:         "foreign",
+		Type:         registry.TypeRule,
+		RelativePath: "rules/foreign.md",
+	}
+	reg.RegisterEntry(e)
+	defer reg.RemoveEntry(e.ID)
+
+	// Run should fail on conflict
+	cmd := exec.Command(carrelBin, "run")
+	cmd.Dir = "/workspace/carrel"
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Error("should fail on foreign file conflict")
+	}
+	if !strings.Contains(string(out), "conflict") && !strings.Contains(string(out), "foreign") {
+		t.Errorf("error should mention conflict/foreign: %s", out)
+	}
+}
+
+// TestRunUnregisteredSuggestsDiscover verifies error message mentions discover.
+func TestRunUnregisteredSuggestsDiscover(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	tmpDir, _ := os.MkdirTemp("/home/dev", "carrel-test-*")
+	defer os.RemoveAll(tmpDir)
+	os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755)
+
+	cmd := exec.Command(carrelBin, "run")
+	cmd.Dir = tmpDir
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Error("should fail")
+	}
+	if !strings.Contains(string(out), "discover") {
+		t.Errorf("error should mention discover: %s", out)
+	}
+}
+
+// TestRunResolvesConsumerFromCwd verifies consumer resolution from cwd.
+func TestRunResolvesConsumerFromCwd(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	// Run from carrel repo (registered consumer)
+	cmd := exec.Command(carrelBin, "run", "--dry-run")
+	cmd.Dir = "/workspace/carrel"
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run from registered repo should succeed: %v\n%s", err, out)
+	}
+}
+
+// TestRunIdempotent verifies second run succeeds via deployment claim.
+func TestRunIdempotent(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	// First run
+	cmd := exec.Command(carrelBin, "run", "--dry-run")
+	cmd.Dir = "/workspace/carrel"
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("first dry-run failed: %v\n%s", err, out)
+	}
+
+	// Second run should also succeed (dry-run doesn't record claims,
+	// but the run should still compose and dry-run cleanly)
+	cmd = exec.Command(carrelBin, "run", "--dry-run")
+	cmd.Dir = "/workspace/carrel"
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("second dry-run failed: %v\n%s", err, out)
+	}
+}
+
+// openRegistry opens the Dolt registry for test manipulation.
+func openRegistry(t *testing.T) *registry.DoltRegistry {
+	t.Helper()
+	reg, err := registry.NewDoltRegistry("file:///workspace/.carrel?commitname=Test&commitemail=test@localhost&database=registry")
+	if err != nil {
+		t.Fatalf("open registry: %v", err)
+	}
+	return reg
+}

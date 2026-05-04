@@ -135,3 +135,29 @@ func TestComposeIsDeterministic(t *testing.T) {
 		t.Error("identical inputs should produce identical outputs")
 	}
 }
+
+func TestPrimitiveOverrideToConcatenation(t *testing.T) {
+	consumer := registry.Consumer{ID: uuid.New(), Alias: "t", Path: "/t"}
+	univSrc := registry.Source{ID: uuid.New(), Alias: "u", Path: "/u", Scope: registry.ScopeUniversal}
+	tgtSrc := registry.Source{ID: uuid.New(), Alias: "tgt", Path: "/tgt", Scope: registry.ScopeTargetSpecific}
+	sources := []registry.Source{univSrc, tgtSrc}
+
+	concat := registry.PrimitiveConcatenation
+	e1 := registry.Entry{ID: uuid.New(), SourceID: univSrc.ID, Name: "no-push", Type: registry.TypeRule, RelativePath: "rules/no-push.md", ContentHash: 1}
+	e2 := registry.Entry{ID: uuid.New(), SourceID: tgtSrc.ID, Name: "no-push", Type: registry.TypeRule, RelativePath: "rules/no-push.md", ContentHash: 2, PrimitiveOverride: &concat}
+	entries := []registry.Entry{e1, e2}
+
+	plan, err := composer.Compose(consumer, sources, entries)
+	if err != nil {
+		t.Fatalf("Compose: %v", err)
+	}
+	if len(plan.Files) != 1 {
+		t.Fatalf("got %d files, want 1", len(plan.Files))
+	}
+	if plan.Files[0].Primitive != registry.PrimitiveConcatenation {
+		t.Error("should use concatenation due to PrimitiveOverride")
+	}
+	if len(plan.Files[0].SourceEntries) != 2 {
+		t.Errorf("got %d source entries, want 2", len(plan.Files[0].SourceEntries))
+	}
+}
