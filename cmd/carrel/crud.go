@@ -103,13 +103,22 @@ func crudListCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 			for _, s := range sources {
 				sourceIDs = append(sourceIDs, s.ID)
 			}
+
+			// Build source alias lookup
+			sourceAlias := make(map[uuid.UUID]string)
+			for _, s := range sources {
+				sourceAlias[s.ID] = s.Alias
+			}
+
 			entries, err := reg.ResolveEntries(sourceIDs)
 			if err != nil {
 				return err
 			}
+
 			for _, e := range entries {
 				if e.Type == typ {
-					fmt.Printf("%s/%s (%s)\n", e.Name, e.RelativePath, e.SourceID)
+					alias := sourceAlias[e.SourceID]
+					fmt.Printf("%-30s %-20s %s\n", e.Name, alias, e.RelativePath)
 				}
 			}
 			return nil
@@ -163,9 +172,6 @@ func crudViewCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 					}
 
 					if showBoth || !metaOnly {
-						// Read content from disk
-						path, _ := registry.RelativePath(typ, e.Name)
-						_ = path
 						fmt.Println("\n--- Content ---")
 						for _, s := range sources {
 							data, err := os.ReadFile(filepath.Join(s.Path, e.RelativePath))
