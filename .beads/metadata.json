@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "carrel",
+  "project_id": "e1893044-dec7-4bc7-b793-a279714287d3"
+}
