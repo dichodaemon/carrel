@@ -38,7 +38,7 @@ func main() {
 	}
 
 	// Query commands
-	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd} {
+	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd, typesCmd} {
 		cmd := f()
 		cmd.GroupID = "query"
 		rootCmd.AddCommand(cmd)
