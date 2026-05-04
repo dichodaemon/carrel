@@ -33,13 +33,11 @@ var capabilityTypes = []struct {
 // addCRUDCommands adds verb-first CRUD subcommands to the root command.
 // Commands: carrel add <type> <name>, carrel list <type>, etc.
 func addCRUDCommands(root *cobra.Command) {
-	root.AddCommand(crudAddCmd())
-	root.AddCommand(crudListCmd())
-	root.AddCommand(crudRmCmd())
-	root.AddCommand(crudViewCmd())
-	root.AddCommand(crudEditCmd())
-	root.AddCommand(crudUpdateCmd())
-	root.AddCommand(crudRenameCmd())
+	for _, f := range []func() *cobra.Command{crudAddCmd, crudListCmd, crudRmCmd, crudViewCmd, crudEditCmd, crudUpdateCmd, crudRenameCmd} {
+		cmd := f()
+		cmd.GroupID = "crud"
+		root.AddCommand(cmd)
+	}
 }
 
 func crudAddCmd() *cobra.Command {

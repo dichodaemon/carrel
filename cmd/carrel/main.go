@@ -21,19 +21,31 @@ import (
 )
 
 func main() {
-	rootCmd := &cobra.Command{Use: "carrel", Short: "Carrel — OMP and OS tool configuration manager"}
+	rootCmd := &cobra.Command{
+		Use:   "carrel",
+		Short: "Carrel — OMP and OS tool configuration manager",
+	}
 
-	rootCmd.AddCommand(bootstrapCmd())
-	rootCmd.AddCommand(discoverCmd())
-	rootCmd.AddCommand(migrateCmd())
-	rootCmd.AddCommand(runCmd())
-	rootCmd.AddCommand(osSetupCmd())
-	rootCmd.AddCommand(hostSetupCmd())
-	rootCmd.AddCommand(statusCmd())
-	rootCmd.AddCommand(verifyCmd())
-	rootCmd.AddCommand(dashboardCmd())
+	rootCmd.AddGroup(&cobra.Group{ID: "lifecycle", Title: "Lifecycle Commands:"})
+	rootCmd.AddGroup(&cobra.Group{ID: "crud", Title: "Configuration CRUD:"})
+	rootCmd.AddGroup(&cobra.Group{ID: "query", Title: "Query Commands:"})
+
+	// Lifecycle commands
+	for _, f := range []func() *cobra.Command{bootstrapCmd, discoverCmd, migrateCmd, runCmd, osSetupCmd, hostSetupCmd} {
+		cmd := f()
+		cmd.GroupID = "lifecycle"
+		rootCmd.AddCommand(cmd)
+	}
+
+	// Query commands
+	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd} {
+		cmd := f()
+		cmd.GroupID = "query"
+		rootCmd.AddCommand(cmd)
+	}
 
 	addCRUDCommands(rootCmd)
+
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
