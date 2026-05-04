@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/dichodaemon/carrel/internal/registry"
 	"github.com/dichodaemon/carrel/internal/scanner"
+	"github.com/dichodaemon/carrel/internal/tui"
 )
 
 func main() {
@@ -226,7 +228,14 @@ func dashboardCmd() *cobra.Command {
 		Use:   "dashboard",
 		Short: "Launch TUI dashboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("TUI dashboard not yet implemented")
+			reg := mustOpenRegistry()
+			defer reg.Close()
+
+			m := tui.NewModel(reg)
+			p := tea.NewProgram(m)
+			if _, err := p.Run(); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
