@@ -156,7 +156,7 @@ func TestCRUDAddAndList(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	cmd := exec.Command(carrelBin, "rule", "add", "test-rule",
+	cmd := exec.Command(carrelBin, "add", "rule", "test-rule",
 		"--source=carrel-omp", "--content=test content")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -169,10 +169,10 @@ func TestCRUDAddAndList(t *testing.T) {
 		t.Error("rule file not created at", rulePath)
 	}
 	defer os.Remove(rulePath)
-	defer func() { exec.Command(carrelBin, "rule", "rm", "test-rule").Run() }()
+	defer func() { exec.Command(carrelBin, "rm", "rule", "test-rule").Run() }()
 
 	// List rules
-	cmd = exec.Command(carrelBin, "rule", "list")
+	cmd = exec.Command(carrelBin, "list", "rule")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rule list failed: %v\n%s", err, out)
@@ -187,10 +187,10 @@ func TestCRUDRemove(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	exec.Command(carrelBin, "rule", "add", "remove-me",
+	exec.Command(carrelBin, "add", "rule", "remove-me",
 		"--source=carrel-omp", "--content=test").Run()
 
-	cmd := exec.Command(carrelBin, "rule", "rm", "remove-me")
+	cmd := exec.Command(carrelBin, "rm", "rule", "remove-me")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rule rm failed: %v\n%s", err, out)
@@ -278,7 +278,7 @@ func TestViewShowsContent(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	cmd := exec.Command(carrelBin, "rule", "view", "no-push-oh-my-pi")
+	cmd := exec.Command(carrelBin, "view", "rule", "no-push-oh-my-pi")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("view failed: %v\n%s", err, out)
@@ -297,7 +297,7 @@ func TestViewMetaOnly(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	cmd := exec.Command(carrelBin, "rule", "view", "no-push-oh-my-pi", "--meta-only")
+	cmd := exec.Command(carrelBin, "view", "rule", "no-push-oh-my-pi", "--meta-only")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("view --meta-only failed: %v\n%s", err, out)
@@ -316,7 +316,7 @@ func TestViewContentOnly(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	cmd := exec.Command(carrelBin, "rule", "view", "no-push-oh-my-pi", "--content-only")
+	cmd := exec.Command(carrelBin, "view", "rule", "no-push-oh-my-pi", "--content-only")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("view --content-only failed: %v\n%s", err, out)
@@ -335,7 +335,7 @@ func TestListShowsHumanFriendly(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	cmd := exec.Command(carrelBin, "rule", "list")
+	cmd := exec.Command(carrelBin, "list", "rule")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("list failed: %v\n%s", err, out)

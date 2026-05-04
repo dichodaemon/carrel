@@ -12,53 +12,54 @@ import (
 	"github.com/dichodaemon/carrel/internal/registry"
 )
 
-// addCRUDCommands adds per-type CRUD subcommands to the root command.
-func addCRUDCommands(root *cobra.Command) {
-	types := []struct {
-		name string
-		typ  registry.CapabilityType
-	}{
-		{"rule", registry.TypeRule},
-		{"skill", registry.TypeSkill},
-		{"command", registry.TypeCommand},
-		{"extension", registry.TypeExtension},
-		{"agent", registry.TypeAgent},
-		{"tool", registry.TypeTool},
-		{"hook", registry.TypeHook},
-		{"prompt", registry.TypePrompt},
-		{"instruction", registry.TypeInstruction},
-		{"context-file", registry.TypeContextFile},
-		{"append-system", registry.TypeAppendSystem},
-	}
-
-	for _, t := range types {
-		cmd := &cobra.Command{Use: t.name, Short: fmt.Sprintf("Manage %s entries", t.name)}
-
-		cmd.AddCommand(crudAddCmd(t.name, t.typ))
-		cmd.AddCommand(crudListCmd(t.name, t.typ))
-		cmd.AddCommand(crudRmCmd(t.name, t.typ))
-		cmd.AddCommand(crudViewCmd(t.name, t.typ))
-		cmd.AddCommand(crudEditCmd(t.name, t.typ))
-		cmd.AddCommand(crudUpdateCmd(t.name, t.typ))
-		cmd.AddCommand(crudRenameCmd(t.name, t.typ))
-
-		root.AddCommand(cmd)
-	}
+// capabilityTypes lists all OMP capability types for CRUD.
+var capabilityTypes = []struct {
+	name string
+	typ  registry.CapabilityType
+}{
+	{"rule", registry.TypeRule},
+	{"skill", registry.TypeSkill},
+	{"command", registry.TypeCommand},
+	{"extension", registry.TypeExtension},
+	{"agent", registry.TypeAgent},
+	{"tool", registry.TypeTool},
+	{"hook", registry.TypeHook},
+	{"prompt", registry.TypePrompt},
+	{"instruction", registry.TypeInstruction},
+	{"context-file", registry.TypeContextFile},
+	{"append-system", registry.TypeAppendSystem},
 }
 
-func crudAddCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
+// addCRUDCommands adds verb-first CRUD subcommands to the root command.
+// Commands: carrel add <type> <name>, carrel list <type>, etc.
+func addCRUDCommands(root *cobra.Command) {
+	root.AddCommand(crudAddCmd())
+	root.AddCommand(crudListCmd())
+	root.AddCommand(crudRmCmd())
+	root.AddCommand(crudViewCmd())
+	root.AddCommand(crudEditCmd())
+	root.AddCommand(crudUpdateCmd())
+	root.AddCommand(crudRenameCmd())
+}
+
+func crudAddCmd() *cobra.Command {
 	var sourceAlias string
 	var content string
 	var filePath string
 
 	cmd := &cobra.Command{
-		Use:   "add <name>",
-		Short: fmt.Sprintf("Add a %s entry", typeName),
+		Use:   "add <type> <name>",
+		Short: "Add a configuration entry",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("name required")
+			if len(args) < 2 {
+				return fmt.Errorf("type and name required: carrel add <type> <name>")
 			}
-			name := args[0]
+			typeName := args[0]
+			name := args[1]
+			typ, ok := lookupType(typeName)
+			if !ok {
+				return fmt.Errorf("unknown type %q", typeName)
+			}
 
 			var data []byte
 			if content != "" {
@@ -75,7 +76,6 @@ func crudAddCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 
 			reg := mustOpenRegistry()
 			defer reg.Close()
-
 			_, err := authoring.AddEntry(reg, typ, name, sourceAlias, data)
 			return err
 		},
@@ -87,11 +87,20 @@ func crudAddCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 	return cmd
 }
 
-func crudListCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
+func crudListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: fmt.Sprintf("List %s entries", typeName),
+		Use:   "list <type>",
+		Short: "List configuration entries by type",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("type required: carrel list <type>")
+			}
+			typeName := args[0]
+			typ, ok := lookupType(typeName)
+			if !ok {
+				return fmt.Errorf("unknown type %q", typeName)
+			}
+
 			reg := mustOpenRegistry()
 			defer reg.Close()
 
@@ -104,7 +113,6 @@ func crudListCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 				sourceIDs = append(sourceIDs, s.ID)
 			}
 
-			// Build source alias lookup
 			sourceAlias := make(map[uuid.UUID]string)
 			for _, s := range sources {
 				sourceAlias[s.ID] = s.Alias
@@ -126,33 +134,47 @@ func crudListCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 	}
 }
 
-func crudRmCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
+func crudRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm <name>",
-		Short: fmt.Sprintf("Remove a %s entry", typeName),
+		Use:   "rm <type> <name>",
+		Short: "Remove a configuration entry",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("name required")
+			if len(args) < 2 {
+				return fmt.Errorf("type and name required: carrel rm <type> <name>")
 			}
+			typeName := args[0]
+			name := args[1]
+			typ, ok := lookupType(typeName)
+			if !ok {
+				return fmt.Errorf("unknown type %q", typeName)
+			}
+
 			reg := mustOpenRegistry()
 			defer reg.Close()
-			return authoring.RemoveEntry(reg, typ, args[0])
+			return authoring.RemoveEntry(reg, typ, name)
 		},
 	}
 }
 
-func crudViewCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
+func crudViewCmd() *cobra.Command {
 	var metaOnly bool
 	var contentOnly bool
 
 	cmd := &cobra.Command{
-		Use:   "view <name>",
-		Short: fmt.Sprintf("View a %s entry", typeName),
-		Long:  fmt.Sprintf("Shows registry metadata and file content for a %s entry. Use --meta-only or --content-only to filter.", typeName),
+		Use:   "view <type> <name>",
+		Short: "View a configuration entry",
+		Long:  "Shows registry metadata and file content. Use --meta-only or --content-only to filter.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("name required")
+			if len(args) < 2 {
+				return fmt.Errorf("type and name required: carrel view <type> <name>")
 			}
+			typeName := args[0]
+			name := args[1]
+			typ, ok := lookupType(typeName)
+			if !ok {
+				return fmt.Errorf("unknown type %q", typeName)
+			}
+
 			reg := mustOpenRegistry()
 			defer reg.Close()
 
@@ -163,7 +185,7 @@ func crudViewCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 			}
 			entries, _ := reg.ResolveEntries(sourceIDs)
 			for _, e := range entries {
-				if e.Type == typ && e.Name == args[0] {
+				if e.Type == typ && e.Name == name {
 					showBoth := !metaOnly && !contentOnly
 
 					if showBoth || !contentOnly {
@@ -185,7 +207,7 @@ func crudViewCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 					return nil
 				}
 			}
-			return fmt.Errorf("%s %q not found", typeName, args[0])
+			return fmt.Errorf("%s %q not found", typeName, name)
 		},
 	}
 
@@ -194,17 +216,24 @@ func crudViewCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 	return cmd
 }
 
-func crudEditCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
+func crudEditCmd() *cobra.Command {
 	var content string
 	var filePath string
 
 	cmd := &cobra.Command{
-		Use:   "edit <name>",
-		Short: fmt.Sprintf("Edit a %s entry", typeName),
+		Use:   "edit <type> <name>",
+		Short: "Edit a configuration entry",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("name required")
+			if len(args) < 2 {
+				return fmt.Errorf("type and name required: carrel edit <type> <name>")
 			}
+			typeName := args[0]
+			name := args[1]
+			typ, ok := lookupType(typeName)
+			if !ok {
+				return fmt.Errorf("unknown type %q", typeName)
+			}
+
 			var data []byte
 			if content != "" {
 				data = []byte(content)
@@ -220,7 +249,7 @@ func crudEditCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 
 			reg := mustOpenRegistry()
 			defer reg.Close()
-			return authoring.EditEntry(reg, typ, args[0], data)
+			return authoring.EditEntry(reg, typ, name, data)
 		},
 	}
 
@@ -229,15 +258,21 @@ func crudEditCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 	return cmd
 }
 
-func crudUpdateCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
+func crudUpdateCmd() *cobra.Command {
 	var final bool
 
 	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: fmt.Sprintf("Update %s metadata", typeName),
+		Use:   "update <type> <name>",
+		Short: "Update entry metadata",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("name required")
+			if len(args) < 2 {
+				return fmt.Errorf("type and name required: carrel update <type> <name>")
+			}
+			typeName := args[0]
+			name := args[1]
+			typ, ok := lookupType(typeName)
+			if !ok {
+				return fmt.Errorf("unknown type %q", typeName)
 			}
 
 			reg := mustOpenRegistry()
@@ -250,7 +285,7 @@ func crudUpdateCmd(typeName string, typ registry.CapabilityType) *cobra.Command 
 			}
 			entries, _ := reg.ResolveEntries(sourceIDs)
 			for _, e := range entries {
-				if e.Type == typ && e.Name == args[0] {
+				if e.Type == typ && e.Name == name {
 					updates := registry.MetaUpdates{}
 					if cmd.Flags().Changed("final") {
 						updates.Final = &final
@@ -258,7 +293,7 @@ func crudUpdateCmd(typeName string, typ registry.CapabilityType) *cobra.Command 
 					return reg.UpdateEntryMeta(e.ID, updates)
 				}
 			}
-			return fmt.Errorf("%s %q not found", typeName, args[0])
+			return fmt.Errorf("%s %q not found", typeName, name)
 		},
 	}
 
@@ -266,17 +301,34 @@ func crudUpdateCmd(typeName string, typ registry.CapabilityType) *cobra.Command 
 	return cmd
 }
 
-func crudRenameCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
+func crudRenameCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rename <old-name> <new-name>",
-		Short: fmt.Sprintf("Rename a %s entry", typeName),
+		Use:   "rename <type> <old-name> <new-name>",
+		Short: "Rename a configuration entry",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("old and new names required")
+			if len(args) < 3 {
+				return fmt.Errorf("type, old name, and new name required: carrel rename <type> <old> <new>")
 			}
+			typeName := args[0]
+			oldName := args[1]
+			newName := args[2]
+			typ, ok := lookupType(typeName)
+			if !ok {
+				return fmt.Errorf("unknown type %q", typeName)
+			}
+
 			reg := mustOpenRegistry()
 			defer reg.Close()
-			return authoring.RenameEntry(reg, typ, args[0], args[1])
+			return authoring.RenameEntry(reg, typ, oldName, newName)
 		},
 	}
+}
+
+func lookupType(name string) (registry.CapabilityType, bool) {
+	for _, ct := range capabilityTypes {
+		if ct.name == name {
+			return ct.typ, true
+		}
+	}
+	return 0, false
 }
