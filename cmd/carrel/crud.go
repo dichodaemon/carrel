@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -132,16 +133,20 @@ func crudRmCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 }
 
 func crudViewCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
-	return &cobra.Command{
+	var metaOnly bool
+	var contentOnly bool
+
+	cmd := &cobra.Command{
 		Use:   "view <name>",
 		Short: fmt.Sprintf("View a %s entry", typeName),
+		Long:  fmt.Sprintf("Shows registry metadata and file content for a %s entry. Use --meta-only or --content-only to filter.", typeName),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("name required")
 			}
 			reg := mustOpenRegistry()
 			defer reg.Close()
-			// Resolve entry by name+type
+
 			sources, _ := reg.ListSources()
 			var sourceIDs []uuid.UUID
 			for _, s := range sources {
@@ -150,14 +155,37 @@ func crudViewCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
 			entries, _ := reg.ResolveEntries(sourceIDs)
 			for _, e := range entries {
 				if e.Type == typ && e.Name == args[0] {
-					fmt.Printf("Name: %s\nType: %s\nPath: %s\nHash: %d\nFinal: %v\n",
-						e.Name, typeName, e.RelativePath, e.ContentHash, e.Final)
+					showBoth := !metaOnly && !contentOnly
+
+					if showBoth || !contentOnly {
+						fmt.Printf("Name: %s\nType: %s\nPath: %s\nHash: %d\nFinal: %v\n",
+							e.Name, typeName, e.RelativePath, e.ContentHash, e.Final)
+					}
+
+					if showBoth || !metaOnly {
+						// Read content from disk
+						path, _ := registry.RelativePath(typ, e.Name)
+						_ = path
+						fmt.Println("\n--- Content ---")
+						for _, s := range sources {
+							data, err := os.ReadFile(filepath.Join(s.Path, e.RelativePath))
+							if err == nil {
+								fmt.Println(string(data))
+								return nil
+							}
+						}
+						fmt.Println("(file not found on disk)")
+					}
 					return nil
 				}
 			}
 			return fmt.Errorf("%s %q not found", typeName, args[0])
 		},
 	}
+
+	cmd.Flags().BoolVar(&metaOnly, "meta-only", false, "Show metadata only")
+	cmd.Flags().BoolVar(&contentOnly, "content-only", false, "Show content only")
+	return cmd
 }
 
 func crudEditCmd(typeName string, typ registry.CapabilityType) *cobra.Command {
