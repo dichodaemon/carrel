@@ -3,11 +3,18 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
+	"time"
 
-	tea "charm.land/bubbletea/v2"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/dichodaemon/carrel/internal/composer"
+	"github.com/dichodaemon/carrel/internal/deployer"
 	"github.com/dichodaemon/carrel/internal/registry"
 	"github.com/dichodaemon/carrel/internal/scanner"
 	"github.com/dichodaemon/carrel/internal/tui"
@@ -110,11 +117,6 @@ func runCmd() *cobra.Command {
 		Short: "Assemble, deploy, and exec OMP",
 		Long:  "Resolves the consumer from cwd, composes configuration, deploys to OMP paths, then execs omp.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dryRun {
-				fmt.Println("dry-run: would assemble and deploy for current directory")
-				return nil
-			}
-
 			cwd, err := os.Getwd()
 			if err != nil {
 				return err
@@ -131,17 +133,96 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("unregistered repo %s; run 'carrel discover' to see available repos", gitRoot)
 			}
-			_ = c
 
-			fmt.Printf("deploying configuration for %s (%s)...\n", c.Alias, c.Path)
-			fmt.Printf("on-conflict: %s\n", onConflict)
+			sources, err := reg.ResolveSources(c.ID)
+			if err != nil {
+				return fmt.Errorf("resolve sources: %w", err)
+			}
 
-			// TODO: compose + deploy + exec omp
-			fmt.Println("deployment complete — exec omp")
-			return nil
+			var sourceIDs []uuid.UUID
+			for _, s := range sources {
+				sourceIDs = append(sourceIDs, s.ID)
+			}
+			entries, err := reg.ResolveEntries(sourceIDs)
+			if err != nil {
+				return fmt.Errorf("resolve entries: %w", err)
+			}
+
+			plan, err := composer.Compose(c, sources, entries)
+			if err != nil {
+				return fmt.Errorf("compose: %w", err)
+			}
+
+			// Resolve content for each output file
+			for i := range plan.Files {
+				if err := resolveOutputContent(&plan.Files[i], entries, sources); err != nil {
+					return fmt.Errorf("resolve content for %s: %w", plan.Files[i].DestinationPath, err)
+				}
+			}
+
+			// Determine conflict policy
+			var policy deployer.ConflictPolicy
+			switch onConflict {
+			case "backup":
+				policy = deployer.ConflictBackup
+			case "skip":
+				policy = deployer.ConflictSkip
+			default:
+				policy = deployer.ConflictError
+			}
+
+
+			// Make destination paths absolute for this consumer
+			ompDir := filepath.Join(c.Path, ".omp")
+			for i := range plan.Files {
+				plan.Files[i].DestinationPath = filepath.Join(ompDir, plan.Files[i].DestinationPath)
+			}
+
+			if dryRun {
+				collisions, _ := deployer.Deploy(plan, nil, policy, true)
+				fmt.Printf("dry-run: %d files would be deployed\n", len(plan.Files))
+				for _, col := range collisions {
+					fmt.Printf("  collision: %s (%v)\n", col.Path, col.Action)
+				}
+				return nil
+			}
+
+			_, prevEntries, _ := reg.LastDeployment(c.ID)
+
+			collisions, err := deployer.Deploy(plan, prevEntries, policy, false)
+			now := time.Now()
+			if err != nil {
+				reg.RecordDeployment(registry.Deployment{
+					ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
+				}, nil)
+				return err
+			}
+
+			// Record successful deployment
+			var depEntries []registry.DeploymentEntry
+			for _, f := range plan.Files {
+				depEntries = append(depEntries, registry.DeploymentEntry{
+					DeploymentID: uuid.New(),
+					Path:        f.DestinationPath,
+					ContentHash: f.ContentHash,
+				})
+			}
+			reg.RecordDeployment(registry.Deployment{
+				ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
+				SucceededAt: &now,
+			}, depEntries)
+
+			_ = collisions
+			fmt.Printf("deployment complete — %d files written\n", len(plan.Files))
+
+			// Exec omp
+			ompBin, err := exec.LookPath("omp")
+			if err != nil {
+				return fmt.Errorf("omp not found in PATH")
+			}
+			return syscall.Exec(ompBin, []string{"omp"}, os.Environ())
 		},
 	}
-
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
 	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip")
 	return cmd
