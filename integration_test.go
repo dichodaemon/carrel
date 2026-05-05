@@ -453,3 +453,175 @@ func openRegistry(t *testing.T) *registry.DoltRegistry {
 	}
 	return reg
 }
+
+// --- Query mode tests ---
+
+func TestFilesListsEntries(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "files")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("files failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "no-push-oh-my-pi") {
+		t.Error("files should show registered entries")
+	}
+	if !strings.Contains(output, "EXISTS") {
+		t.Error("files should show EXISTS status")
+	}
+}
+
+func TestFilesJsonOutput(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "files", "--json")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("files --json failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "\"sourceAlias\"") {
+		t.Error("JSON should contain sourceAlias field")
+	}
+}
+
+func TestDeployedShowsStatus(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "deployed")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("deployed failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "DEPLOYED") && !strings.Contains(output, "MISSING") {
+		t.Error("deployed should show status")
+	}
+}
+
+func TestDeployedClaimsOnly(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "deployed", "--claims")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("deployed --claims failed: %v\n%s", err, out)
+	}
+	if strings.Contains(string(out), "MISSING") {
+		t.Error("deployed --claims should not show MISSING")
+	}
+}
+
+func TestPlanShowsChanges(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "plan")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("plan failed: %v\n%s", err, out)
+	}
+	// Plan should work (shows current or no changes)
+	_ = out
+}
+
+func TestDependentsListsConsumers(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "dependents", "carrel-omp")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("dependents failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "carrel") {
+		t.Error("dependents should include carrel")
+	}
+	if !strings.Contains(output, "folio") {
+		t.Error("dependents should include folio")
+	}
+}
+
+func TestFeedsListsSources(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "feeds", "carrel")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("feeds failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "carrel-omp") {
+		t.Error("feeds should include carrel-omp")
+	}
+}
+
+func TestInspectSourceFile(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "inspect", "carrel-omp:rule:no-push-oh-my-pi")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("inspect failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "Name:") {
+		t.Error("inspect should show metadata")
+	}
+	if !strings.Contains(output, "Content") {
+		t.Error("inspect should show content")
+	}
+}
+
+func TestInspectDeployedFile(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "inspect", "carrel:/workspace/carrel/.omp/rules/no-push-oh-my-pi.md")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("inspect deployed failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "Content") {
+		t.Error("inspect deployed should show content")
+	}
+}
+
+func TestTraceSource(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "trace", "carrel-omp:rule:no-push-oh-my-pi")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("trace failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "carrel-omp") {
+		t.Error("trace should show source")
+	}
+}
+
+func TestTraceDeployed(t *testing.T) {
+	buildCarrelBin(t)
+	exec.Command(carrelBin, "bootstrap").Run()
+
+	cmd := exec.Command(carrelBin, "trace", "carrel:/workspace/carrel/.omp/rules/no-push-oh-my-pi.md")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("trace deployed failed: %v\n%s", err, out)
+	}
+	output := string(out)
+	if !strings.Contains(output, "carrel-omp") {
+		t.Error("trace deployed should show source")
+	}
+}

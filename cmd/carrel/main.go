@@ -213,11 +213,14 @@ func runCmd() *cobra.Command {
 			// Record successful deployment
 			var depEntries []registry.DeploymentEntry
 			for _, f := range plan.Files {
-				depEntries = append(depEntries, registry.DeploymentEntry{
-					DeploymentID: uuid.New(),
-					Path:        f.DestinationPath,
-					ContentHash: f.ContentHash,
-				})
+				for _, eID := range f.SourceEntries {
+					depEntries = append(depEntries, registry.DeploymentEntry{
+						DeploymentID: uuid.New(),
+						Path:         f.DestinationPath,
+						ContentHash:  f.ContentHash,
+						SourceEntry:  eID,
+					})
+				}
 			}
 			reg.RecordDeployment(registry.Deployment{
 				ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
