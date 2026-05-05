@@ -1,11 +1,7 @@
 package registry
 
-// SchemaVersion is the current registry schema version.
-// Increment when schema changes; migrations are applied in order.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
-// Migrations returns SQL statements to initialize the registry schema.
-// Each entry is a versioned migration. v0 → v1 is the initial schema.
 var Migrations = map[int][]string{
 	1: {
 		`CREATE TABLE schema_version (version INT PRIMARY KEY)`,
@@ -53,11 +49,25 @@ var Migrations = map[int][]string{
 			source_entry VARCHAR(36) NOT NULL REFERENCES entries(id)
 		)`,
 	},
+	2: {
+		`UPDATE schema_version SET version = 2`,
+
+		`CREATE TABLE consumer_sources (
+			consumer_id VARCHAR(36) NOT NULL REFERENCES consumers(id),
+			source_id   VARCHAR(36) NOT NULL REFERENCES sources(id),
+			PRIMARY KEY (consumer_id, source_id)
+		)`,
+
+		`CREATE TABLE deployment_trace (
+			source_entry VARCHAR(36) NOT NULL REFERENCES entries(id),
+			consumer_id  VARCHAR(36) NOT NULL REFERENCES consumers(id),
+			path         VARCHAR(1024) NOT NULL,
+			PRIMARY KEY (source_entry, consumer_id, path)
+		)`,
+	},
 }
 
-// ApplyMigrations ensures the schema is at the current version.
 func ApplyMigrations(r *DoltRegistry) error {
-	// Create database if not exists (embedded Dolt)
 	_, err := r.db.Exec("CREATE DATABASE IF NOT EXISTS registry")
 	if err != nil {
 		return err
@@ -67,15 +77,12 @@ func ApplyMigrations(r *DoltRegistry) error {
 		return err
 	}
 
-	// Check current version
 	var currentVersion int
 	row := r.db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_version")
 	if err := row.Scan(&currentVersion); err != nil {
-		// schema_version table doesn't exist yet — start from 0
 		currentVersion = 0
 	}
 
-	// Apply migrations in order
 	for v := currentVersion + 1; v <= SchemaVersion; v++ {
 		stmts, ok := Migrations[v]
 		if !ok {
