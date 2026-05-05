@@ -456,32 +456,32 @@ func openRegistry(t *testing.T) *registry.DoltRegistry {
 
 // --- Query mode tests ---
 
-func TestFilesListsEntries(t *testing.T) {
+func TestSourcesListsEntries(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	cmd := exec.Command(carrelBin, "files")
+	cmd := exec.Command(carrelBin, "sources")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("files failed: %v\n%s", err, out)
+		t.Fatalf("sources failed: %v\n%s", err, out)
 	}
 	output := string(out)
 	if !strings.Contains(output, "no-push-oh-my-pi") {
-		t.Error("files should show registered entries")
+		t.Error("sources should show registered entries")
 	}
 	if !strings.Contains(output, "EXISTS") {
-		t.Error("files should show EXISTS status")
+		t.Error("sources should show EXISTS status")
 	}
 }
 
-func TestFilesJsonOutput(t *testing.T) {
+func TestSourcesJsonOutput(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	cmd := exec.Command(carrelBin, "files", "--json")
+	cmd := exec.Command(carrelBin, "sources", "--json")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("files --json failed: %v\n%s", err, out)
+		t.Fatalf("sources --json failed: %v\n%s", err, out)
 	}
 	if !strings.Contains(string(out), "\"sourceAlias\"") {
 		t.Error("JSON should contain sourceAlias field")
