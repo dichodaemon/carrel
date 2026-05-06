@@ -15,19 +15,21 @@ import (
 type ConflictPolicy int
 
 const (
-	ConflictError  ConflictPolicy = iota // stop and return error
-	ConflictBackup                       // rename existing to .bak, then write
-	ConflictSkip                         // leave existing file in place
+	ConflictError     ConflictPolicy = iota // stop and return error
+	ConflictBackup                          // rename existing to .bak, then write
+	ConflictSkip                            // leave existing file in place
+	ConflictOverwrite                       // overwrite foreign file in place
 )
 
 // ConflictAction records what happened to a foreign file during deployment.
 type ConflictAction int
 
 const (
-	ActionReplaced ConflictAction = iota // carrel-owned file, replaced
-	ActionBackedUp                       // foreign file, renamed to .bak
-	ActionSkipped                        // foreign file, skipped
-	ActionErrored                        // foreign file, would have caused error (dryRun only)
+	ActionReplaced   ConflictAction = iota // carrel-owned file, replaced
+	ActionBackedUp                         // foreign file, renamed to .bak
+	ActionSkipped                          // foreign file, skipped
+	ActionErrored                          // foreign file, would have caused error (dryRun only)
+	ActionOverwritten                      // foreign file, overwritten in place
 )
 
 // CollisionResult records a single collision encountered during deployment.
@@ -115,6 +117,8 @@ func Deploy(
 			continue
 		case ActionBackedUp:
 			ops = append(ops, writeOp{file: f, action: ActionBackedUp, needsBackup: true})
+		case ActionOverwritten:
+			ops = append(ops, writeOp{file: f, action: ActionOverwritten})
 		}
 	}
 
@@ -160,6 +164,8 @@ func resolveConflict(policy ConflictPolicy) ConflictAction {
 		return ActionBackedUp
 	case ConflictSkip:
 		return ActionSkipped
+	case ConflictOverwrite:
+		return ActionOverwritten
 	default:
 		return ActionSkipped
 	}

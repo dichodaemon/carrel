@@ -180,7 +180,7 @@ func runCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
-	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip")
+	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip, overwrite")
 	return cmd
 }
 
@@ -205,7 +205,7 @@ func osSetupCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
-	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip")
+	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip, overwrite")
 	return cmd
 }
 
@@ -267,6 +267,8 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 		policy = deployer.ConflictBackup
 	case "skip":
 		policy = deployer.ConflictSkip
+	case "overwrite":
+		policy = deployer.ConflictOverwrite
 	default:
 		policy = deployer.ConflictError
 	}
@@ -333,7 +335,7 @@ func hostSetupCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
-	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip")
+	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip, overwrite")
 	return cmd
 }
 
