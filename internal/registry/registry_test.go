@@ -120,12 +120,18 @@ func testRegistry(t *testing.T, newReg func() (registry.Registry, func())) {
 		reg, cleanup := newReg()
 		defer cleanup()
 
+		c := registry.Consumer{ID: uuid.New(), Alias: "c", Path: "/c"}
+		reg.RegisterConsumer(c)
+
 		s1 := registry.Source{ID: uuid.New(), Alias: "universal", Path: "/u", Scope: registry.ScopeUniversal}
 		s2 := registry.Source{ID: uuid.New(), Alias: "target", Path: "/t", Scope: registry.ScopeTargetSpecific}
 		reg.RegisterSource(s1)
 		reg.RegisterSource(s2)
 
-		sources, err := reg.ResolveSources(uuid.New())
+		// Link target-specific source to consumer
+		reg.LinkConsumerSource(c.ID, s2.ID)
+
+		sources, err := reg.ResolveSources(c.ID)
 		if err != nil {
 			t.Fatalf("ResolveSources: %v", err)
 		}

@@ -1,6 +1,10 @@
 package query
 
-import "github.com/dichodaemon/carrel/internal/registry"
+import (
+	"github.com/google/uuid"
+
+	"github.com/dichodaemon/carrel/internal/registry"
+)
 
 // QueryRegistry extends registry.Registry with query-specific methods.
 type QueryRegistry interface {
@@ -13,4 +17,6 @@ type QueryRegistry interface {
 	TraceSource(sourceAlias string, typ registry.CapabilityType, name string) ([]TraceResult, error)
 	TraceDeployed(consumerAlias string, path string) ([]TraceResult, error)
 	Plan(consumerAlias string) ([]PlanResult, error)
+	ListSlots(consumerAlias string) ([]registry.Slot, error)
+	ListSlotEntries(slotID uuid.UUID) ([]registry.Entry, error)
 }

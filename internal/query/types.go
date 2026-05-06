@@ -10,7 +10,7 @@ type FileResult struct {
 	Name        string              `json:"name"`
 	Path        string              `json:"path"`
 	Status      FileStatus          `json:"status"`
-	ContentHash uint64              `json:"contentHash"`
+	ContentHash int64               `json:"contentHash"`
 	Final       bool                `json:"final"`
 	ID          string              `json:"id"`
 }
@@ -45,8 +45,8 @@ type DeployResult struct {
 	ConsumerAlias string       `json:"consumerAlias"`
 	Path          string       `json:"path"`
 	Status        DeployStatus `json:"status"`
-	ClaimHash     uint64       `json:"claimHash"`
-	ActualHash    uint64       `json:"actualHash"`
+	ClaimHash     int64       `json:"claimHash"`
+	ActualHash    int64       `json:"actualHash"`
 	ID            string       `json:"id"`
 }
 
@@ -85,8 +85,8 @@ type PlanResult struct {
 	ConsumerAlias string     `json:"consumerAlias"`
 	Path          string     `json:"path"`
 	Change        PlanChange `json:"change"`
-	ClaimHash     uint64     `json:"claimHash"`
-	PlanHash      uint64     `json:"planHash"`
+	ClaimHash     int64     `json:"claimHash"`
+	PlanHash      int64     `json:"planHash"`
 }
 
 type PlanChange int

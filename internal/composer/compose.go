@@ -2,184 +2,96 @@ package composer
 
 import (
 	"github.com/google/uuid"
-
-	"github.com/dichodaemon/carrel/internal/registry"
 )
 
 // OutputPlan is the result of composition.
 type OutputPlan struct {
-	Consumer  uuid.UUID
-	Files     []OutputFile
-	Overrides []OverrideRecord
+	Consumer uuid.UUID
+	Files    []OutputFile
 }
 
 // OutputFile is a single file to deploy.
 type OutputFile struct {
 	DestinationPath string
 	Content         []byte
-	ContentHash     uint64
+	ContentHash     int64
 	SourceEntries   []uuid.UUID // Which entries contributed
-	Primitive       registry.Primitive
+	SlotID          uuid.UUID
+	Mode            ComposeMode // Effective compose mode used
 }
 
-// OverrideRecord logs a collision resolved in favor of one entry.
-type OverrideRecord struct {
-	Path     string    // The slot where override occurred
-	Winner   uuid.UUID // Entry that won
-	Loser    uuid.UUID // Entry that was overridden
-	WasFinal bool      // Whether the winner had the final flag
-}
+// ComposeMode is the composition operator.
+type ComposeMode int
 
-// Compose produces an OutputPlan from the given sources and entries.
-// Sources must be ordered by scope (universal first).
-// Entries belong to the listed sources.
-// Compose is a pure function — no I/O, no side effects.
-func Compose(consumer registry.Consumer, sources []registry.Source, entries []registry.Entry) (OutputPlan, error) {
-	// Build source order map
-	sourceOrder := make(map[uuid.UUID]int)
-	for i, s := range sources {
-		sourceOrder[s.ID] = i
-	}
+const (
+	ModeOverride      ComposeMode = 0
+	ModeConcatenation ComposeMode = 1
+)
 
-	// Group entries by capability type
-	byType := make(map[registry.CapabilityType][]registry.Entry)
-	for _, e := range entries {
-		byType[e.Type] = append(byType[e.Type], e)
-	}
-
+// Compose produces an OutputPlan from a consumer's slots and their member entries.
+// It is convention-agnostic: no CapabilityType, no Convention lookups, no source scope.
+func Compose(consumerID uuid.UUID, slots []Slot, entrySlots map[uuid.UUID][]Entry) (OutputPlan, error) {
 	var plan OutputPlan
-	plan.Consumer = consumer.ID
+	plan.Consumer = consumerID
 
-	for typ, typeEntries := range byType {
-		conv := registry.Conventions[typ]
-
-		switch effectivePrimitive(typeEntries, conv) {
-		case registry.PrimitiveOverride:
-			files, overrides := composeOverride(typeEntries, sourceOrder, conv)
-			plan.Files = append(plan.Files, files...)
-			plan.Overrides = append(plan.Overrides, overrides...)
-
-		case registry.PrimitiveConcatenation:
-			files := composeConcatenation(typeEntries, sourceOrder, conv)
-			plan.Files = append(plan.Files, files...)
-
-		case registry.PrimitiveReference:
-			// Reference does not produce output files; it's a deployment mechanism
-			// handled by the deployer.
-
-		case registry.PrimitiveInheritance:
-			// Inheritance is resolved at registry query time (universal → all consumers).
+	for _, slot := range slots {
+		entries := entrySlots[slot.ID]
+		if len(entries) == 0 {
+			continue
 		}
+
+		// Determine effective mode: slot mode wins if set, otherwise first entry's mode
+		mode := entries[0].Mode
+		if slot.ComposeMode != nil {
+			mode = *slot.ComposeMode
+		}
+
+		var file OutputFile
+		file.SlotID = slot.ID
+		file.DestinationPath = slot.DestinationPath
+		file.Mode = mode
+
+		switch mode {
+		case ModeOverride:
+			file.SourceEntries = composeOverrideSlot(entries)
+		case ModeConcatenation:
+			file.SourceEntries = composeConcatSlot(entries)
+		}
+
+		plan.Files = append(plan.Files, file)
 	}
 
 	return plan, nil
 }
 
-// effectivePrimitive returns the primitive to use for a set of entries.
-// If any entry has a PrimitiveOverride, it wins. Otherwise, the convention default.
-func effectivePrimitive(entries []registry.Entry, conv registry.Convention) registry.Primitive {
+// composeOverrideSlot: last entry in slot order wins (scan assigns in source scope order).
+func composeOverrideSlot(entries []Entry) []uuid.UUID {
+	winner := entries[len(entries)-1]
+	return []uuid.UUID{winner.ID}
+}
+
+// composeConcatSlot: all entries contribute in slot order.
+func composeConcatSlot(entries []Entry) []uuid.UUID {
+	var ids []uuid.UUID
 	for _, e := range entries {
-		if e.PrimitiveOverride != nil {
-			return *e.PrimitiveOverride
-		}
+		ids = append(ids, e.ID)
 	}
-	return conv.DefaultPrimitive
+	return ids
 }
 
-// composeOverride resolves entries with the override primitive.
-// Deeper scope wins unless a shallower entry has Final=true.
-func composeOverride(entries []registry.Entry, sourceOrder map[uuid.UUID]int, conv registry.Convention) ([]OutputFile, []OverrideRecord) {
-	// Group by destination path
-	byPath := make(map[string][]registry.Entry)
-	for _, e := range entries {
-		path := convFileName(conv, e.Name)
-		byPath[path] = append(byPath[path], e)
-	}
-
-	var files []OutputFile
-	var overrides []OverrideRecord
-
-	for path, pathEntries := range byPath {
-		winner := resolveWinner(pathEntries, sourceOrder)
-		// Record overrides
-		for _, e := range pathEntries {
-			if e.ID != winner.ID {
-				overrides = append(overrides, OverrideRecord{
-					Path:     path,
-					Winner:   winner.ID,
-					Loser:    e.ID,
-					WasFinal: winner.Final,
-				})
-			}
-		}
-		files = append(files, OutputFile{
-			DestinationPath: path,
-			Primitive:       registry.PrimitiveOverride,
-			SourceEntries:   []uuid.UUID{winner.ID},
-		})
-	}
-
-	return files, overrides
+// Slot is a consumer-specific output target.
+type Slot struct {
+	ID            uuid.UUID
+	ConsumerID    uuid.UUID
+	Name          string
+	DestinationPath string // Resolved path (consumer.DeployRoot + slot.DestPath)
+	ComposeMode   *ComposeMode // nil = use entry modes
 }
 
-// resolveWinner picks the winning entry for a path.
-// Deeper scope wins. Final flag on a shallower entry prevents deeper override.
-func resolveWinner(entries []registry.Entry, sourceOrder map[uuid.UUID]int) registry.Entry {
-	winner := entries[0]
-	for _, e := range entries[1:] {
-		if winner.Final {
-			// Winner is final — cannot be overridden
-			continue
-		}
-		if sourceOrder[e.SourceID] > sourceOrder[winner.SourceID] {
-			// Deeper scope wins
-			winner = e
-		}
-	}
-	return winner
-}
-
-// composeConcatenation concatenates entries in source order.
-func composeConcatenation(entries []registry.Entry, sourceOrder map[uuid.UUID]int, conv registry.Convention) []OutputFile {
-	if len(entries) == 0 {
-		return nil
-	}
-
-	// Sort by source order
-	sortBySourceOrder(entries, sourceOrder)
-
-	var sourceIDs []uuid.UUID
-	for _, e := range entries {
-		sourceIDs = append(sourceIDs, e.ID)
-	}
-
-	path := convFileName(conv, entries[0].Name)
-	return []OutputFile{{
-		DestinationPath: path,
-		Primitive:       registry.PrimitiveConcatenation,
-		SourceEntries:   sourceIDs,
-		// Content and ContentHash are filled by the deployer after reading files
-	}}
-}
-
-// convFileName returns the conventional output path for an entry.
-func convFileName(conv registry.Convention, name string) string {
-	if conv.IsSingleton {
-		return conv.SingletonName
-	}
-	fn := conv.FileName(name)
-	if conv.Dir != "" {
-		return conv.Dir + "/" + fn
-	}
-	return fn
-}
-
-func sortBySourceOrder(entries []registry.Entry, order map[uuid.UUID]int) {
-	for i := 0; i < len(entries); i++ {
-		for j := i + 1; j < len(entries); j++ {
-			if order[entries[i].SourceID] > order[entries[j].SourceID] {
-				entries[i], entries[j] = entries[j], entries[i]
-			}
-		}
-	}
+// Entry is a configuration entry with its compose mode.
+type Entry struct {
+	ID        uuid.UUID
+	SourceID  uuid.UUID
+	Mode      ComposeMode
+	Final     bool
 }

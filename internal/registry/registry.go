@@ -13,6 +13,7 @@ type Registry interface {
 	// Source operations
 	RegisterSource(source Source) error
 	ResolveSources(consumerID uuid.UUID) ([]Source, error)
+	LinkConsumerSource(consumerID, sourceID uuid.UUID) error
 	ListSources() ([]Source, error)
 
 	// Entry operations
@@ -24,12 +25,26 @@ type Registry interface {
 	// Deployment operations
 	RecordDeployment(deployment Deployment, entries []DeploymentEntry) error
 	LastDeployment(consumerID uuid.UUID) (Deployment, []DeploymentEntry, error)
+
+	// Slot operations
+	RegisterSlot(slot Slot) error
+	UpdateSlot(slotID uuid.UUID, updates SlotUpdates) error
+	RemoveSlot(slotID uuid.UUID) error
+	ResolveSlots(consumerID uuid.UUID) ([]Slot, error)
+
+	// Entry-slot operations
+	LinkEntrySlot(entryID, slotID uuid.UUID) error
+	UnlinkEntrySlot(entryID, slotID uuid.UUID) error
+	ResolveEntrySlots(slotID uuid.UUID) ([]Entry, error)
+
+	// Lifecycle
+	Close() error
 }
 
 // MetaUpdates carries optional metadata changes for UpdateEntryMeta.
 type MetaUpdates struct {
-	Final             *bool
-	PrimitiveOverride **Primitive // double pointer: nil = no change, *nil = clear
+	Final       *bool
+	ComposeMode **ComposeMode // double pointer: nil = no change, *nil = clear, set = update
 }
 
 // Common errors.

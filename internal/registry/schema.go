@@ -1,6 +1,8 @@
 package registry
 
-const SchemaVersion = 2
+import "fmt"
+
+const SchemaVersion = 3
 
 var Migrations = map[int][]string{
 	1: {
@@ -65,6 +67,27 @@ var Migrations = map[int][]string{
 			PRIMARY KEY (source_entry, consumer_id, path)
 		)`,
 	},
+	3: {
+		`UPDATE schema_version SET version = 3`,
+
+		`CREATE TABLE slots (
+			id VARCHAR(36) PRIMARY KEY,
+			consumer_id VARCHAR(36) NOT NULL REFERENCES consumers(id),
+			name VARCHAR(255) NOT NULL,
+			dest_path VARCHAR(1024) NOT NULL,
+			compose_mode INT,
+			UNIQUE (consumer_id, name)
+		)`,
+
+		`CREATE TABLE entry_slots (
+			entry_id VARCHAR(36) NOT NULL REFERENCES entries(id),
+			slot_id VARCHAR(36) NOT NULL REFERENCES slots(id),
+			PRIMARY KEY (entry_id, slot_id)
+		)`,
+
+		`ALTER TABLE consumers ADD COLUMN deploy_root TEXT`,
+		`ALTER TABLE entries ADD COLUMN compose_mode INT`,
+	},
 }
 
 func ApplyMigrations(r *DoltRegistry) error {
@@ -95,5 +118,53 @@ func ApplyMigrations(r *DoltRegistry) error {
 		}
 	}
 
+	return nil
+}
+
+// BackfillV3 runs data migration for v3 schema.
+// Must be called after ApplyMigrations when upgrading from v2.
+func BackfillV3(r *DoltRegistry) error {
+	// Backfill deploy_root for existing consumers
+	if _, err := r.db.Exec(`UPDATE consumers SET deploy_root = CONCAT(path, '/.omp') WHERE deploy_root IS NULL`); err != nil {
+		return fmt.Errorf("backfill deploy_root: %w", err)
+	}
+
+	// Backfill compose_mode for entries where it is NULL.
+	// Uses primitive_override if set, otherwise convention default.
+	rows, err := r.db.Query(`SELECT e.id, e.type, e.primitive_override FROM entries e WHERE e.compose_mode IS NULL`)
+	if err != nil {
+		return fmt.Errorf("backfill query entries: %w", err)
+	}
+	defer rows.Close()
+
+	type toUpdate struct {
+		id   string
+		mode int
+	}
+	var updates []toUpdate
+	for rows.Next() {
+		var id string
+		var typ int
+		var primOverride *int
+		if err := rows.Scan(&id, &typ, &primOverride); err != nil {
+			return fmt.Errorf("backfill scan: %w", err)
+		}
+		var mode int
+		if primOverride != nil {
+			mode = *primOverride
+		} else {
+			conv, ok := Conventions[CapabilityType(typ)]
+			if ok {
+				mode = int(conv.DefaultPrimitive)
+			}
+		}
+		updates = append(updates, toUpdate{id, mode})
+	}
+
+	for _, u := range updates {
+		if _, err := r.db.Exec(`UPDATE entries SET compose_mode = ? WHERE id = ?`, u.mode, u.id); err != nil {
+			return fmt.Errorf("backfill update %s: %w", u.id, err)
+		}
+	}
 	return nil
 }

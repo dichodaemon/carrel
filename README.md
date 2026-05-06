@@ -16,7 +16,7 @@ provides a queryable interface for humans and agents.
 | `internal/registry/` | Dolt-backed configuration store with in-memory test backend. |
 | `internal/composer/` | Pure composition pipeline: sources → output plan. |
 | `internal/deployer/` | Writes output plan to disk, handles collisions, manages claims. |
-| `internal/scanner/` | Workspace discovery and carula migration. |
+| `internal/scanner/` | Workspace discovery and source scanning. |
 | `internal/authoring/` | CRUD operations on configuration entries. |
 | `internal/tui/` | Bubbletea dashboard for interactive status and verification. |
 | `omp/` | Carrel's own universal OMP configuration source. |
@@ -34,7 +34,6 @@ packages are compiler-enforced private — only `cmd/carrel` imports them.
 carrel bootstrap          # Initialize registry
 carrel run [--dry-run]    # Compose, deploy, exec OMP
 carrel discover           # Scan workspace for repos
-carrel migrate            # Import carula configuration
 carrel status             # Show registry state
 carrel verify             # Check deployed state
 carrel os-setup           # Deploy OS tool config in container
@@ -123,7 +122,7 @@ Tests cover:
 - **Registry** — Consumer/source/entry/deployment CRUD on Dolt and in-memory backends.
 - **Composer** — Override (deepest scope, final flag), concatenation ordering, determinism.
 - **Deployer** — Collision policies (error/backup/skip), stale cleanup, dry-run, claim recording.
-- **Scanner** — Workspace discovery, carula symlink migration.
+- **Scanner** — Workspace discovery, source scanning.
 - **Authoring** — Add, remove, edit, update metadata, rename for all capability types.
 - **Integration** — Bootstrap idempotency, consumer registration, discover, run flags, CRUD, status, verify.
 

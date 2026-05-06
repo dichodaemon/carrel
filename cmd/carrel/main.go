@@ -31,7 +31,7 @@ func main() {
 	rootCmd.AddGroup(&cobra.Group{ID: "query", Title: "Query Commands:"})
 
 	// Lifecycle commands
-	for _, f := range []func() *cobra.Command{bootstrapCmd, discoverCmd, migrateCmd, runCmd, osSetupCmd, hostSetupCmd} {
+	for _, f := range []func() *cobra.Command{bootstrapCmd, discoverCmd, scanCmd, runCmd, osSetupCmd, hostSetupCmd} {
 		cmd := f()
 		cmd.GroupID = "lifecycle"
 		rootCmd.AddCommand(cmd)
@@ -86,7 +86,7 @@ func discoverCmd() *cobra.Command {
 					flags += " [opt-in]"
 				}
 				if r.HasCarula {
-					flags += " [carula symlink]"
+					flags += " [carula config]"
 				}
 				fmt.Printf("%-40s %s%s\n", r.Path, status, flags)
 			}
@@ -95,24 +95,41 @@ func discoverCmd() *cobra.Command {
 	}
 }
 
-func migrateCmd() *cobra.Command {
+
+func scanCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "migrate",
-		Short: "Import carula configuration into registry",
+		Use:   "scan <source-alias>",
+		Short: "Register files from a source directory as entries",
+		Long:  "Walks a registered source directory, matches files to capability type conventions, and registers them as entries. Idempotent — skips already-registered entries.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reg := mustOpenRegistry()
 			defer reg.Close()
 
-			results, err := scanner.Migrate(reg, "/workspace")
+			sources, err := reg.ListSources()
 			if err != nil {
 				return err
 			}
+			var source *registry.Source
+			for _, s := range sources {
+				if s.Alias == args[0] {
+					source = &s
+					break
+				}
+			}
+			if source == nil {
+				return fmt.Errorf("source %q not found", args[0])
+			}
 
+			results, err := scanner.ScanSource(reg, *source)
+			if err != nil {
+				return err
+			}
 			for _, r := range results {
-				if r.Success {
-					fmt.Printf("migrated: %s\n", r.Path)
+				if r.Action == "error" {
+					fmt.Printf("%-12s %-15s %-20s error: %v\n", r.Action, r.Type, r.Name, r.Error)
 				} else {
-					fmt.Fprintf(os.Stderr, "failed: %s: %v\n", r.Path, r.Error)
+					fmt.Printf("%-12s %-15s %s\n", r.Action, r.Type, r.Name)
 				}
 			}
 			return nil
@@ -146,30 +163,57 @@ func runCmd() *cobra.Command {
 				return fmt.Errorf("unregistered repo %s; run 'carrel discover' to see available repos", gitRoot)
 			}
 
-			sources, err := reg.ResolveSources(c.ID)
+			rSlots, err := reg.ResolveSlots(c.ID)
 			if err != nil {
-				return fmt.Errorf("resolve sources: %w", err)
+				return fmt.Errorf("resolve slots: %w", err)
 			}
 
-			var sourceIDs []uuid.UUID
-			for _, s := range sources {
-				sourceIDs = append(sourceIDs, s.ID)
-			}
-			entries, err := reg.ResolveEntries(sourceIDs)
-			if err != nil {
-				return fmt.Errorf("resolve entries: %w", err)
+			// Build composer slots and entry map
+			var cSlots []composer.Slot
+			entrySlots := make(map[uuid.UUID][]composer.Entry)
+			entryLookup := make(map[uuid.UUID]registry.Entry)
+			sourceByID := make(map[uuid.UUID]registry.Source)
+
+			for _, s := range rSlots {
+				dest := c.DeployRoot + "/" + s.DestPath
+				cSlots = append(cSlots, composer.Slot{
+					ID:              s.ID,
+					ConsumerID:      s.ConsumerID,
+					Name:            s.Name,
+					DestinationPath: dest,
+				})
+
+				sEntries, eErr := reg.ResolveEntrySlots(s.ID)
+				if eErr != nil {
+					continue
+				}
+				var cEntries []composer.Entry
+				for _, e := range sEntries {
+					cEntries = append(cEntries, composer.Entry{
+						ID:       e.ID,
+						SourceID: e.SourceID,
+						Mode:     composer.ComposeMode(e.ComposeMode),
+						Final:    e.Final,
+					})
+					entryLookup[e.ID] = e
+				}
+				entrySlots[s.ID] = cEntries
 			}
 
-			plan, err := composer.Compose(c, sources, entries)
+			plan, err := composer.Compose(c.ID, cSlots, entrySlots)
 			if err != nil {
 				return fmt.Errorf("compose: %w", err)
 			}
 
 			// Resolve content for each output file
+			sources, _ := reg.ListSources()
+			for _, s := range sources {
+				sourceByID[s.ID] = s
+			}
+
+			// Resolve content for each output file
 			for i := range plan.Files {
-				if err := resolveOutputContent(&plan.Files[i], entries, sources); err != nil {
-					return fmt.Errorf("resolve content for %s: %w", plan.Files[i].DestinationPath, err)
-				}
+				resolveOutputContent(&plan.Files[i], entryLookup, sourceByID)
 			}
 
 			// Determine conflict policy
@@ -181,13 +225,6 @@ func runCmd() *cobra.Command {
 				policy = deployer.ConflictSkip
 			default:
 				policy = deployer.ConflictError
-			}
-
-
-			// Make destination paths absolute for this consumer
-			ompDir := filepath.Join(c.Path, ".omp")
-			for i := range plan.Files {
-				plan.Files[i].DestinationPath = filepath.Join(ompDir, plan.Files[i].DestinationPath)
 			}
 
 			if dryRun {
@@ -229,6 +266,9 @@ func runCmd() *cobra.Command {
 
 			_ = collisions
 			fmt.Printf("deployment complete — %d files written\n", len(plan.Files))
+
+			// Ensure .git/info/exclude for non-opt-in repos
+			_ = deployer.EnsureGitExclude(gitRoot)
 
 			// Exec omp
 			ompBin, err := exec.LookPath("omp")

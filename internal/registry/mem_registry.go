@@ -16,9 +16,11 @@ type MemRegistry struct {
 	entries    map[uuid.UUID]Entry
 	deployments map[uuid.UUID]Deployment
 	depEntries  map[uuid.UUID][]DeploymentEntry
+	consumerSources map[uuid.UUID]map[uuid.UUID]bool // consumerID → set of sourceID
+	slots      map[uuid.UUID]Slot
+	entrySlots map[uuid.UUID]map[uuid.UUID]bool // slotID → set of entryID
 }
 
-// NewMemRegistry creates a new in-memory registry.
 func NewMemRegistry() *MemRegistry {
 	return &MemRegistry{
 		consumers:   make(map[uuid.UUID]Consumer),
@@ -27,6 +29,9 @@ func NewMemRegistry() *MemRegistry {
 		entries:     make(map[uuid.UUID]Entry),
 		deployments: make(map[uuid.UUID]Deployment),
 		depEntries:  make(map[uuid.UUID][]DeploymentEntry),
+		consumerSources: make(map[uuid.UUID]map[uuid.UUID]bool),
+		slots:           make(map[uuid.UUID]Slot),
+		entrySlots:      make(map[uuid.UUID]map[uuid.UUID]bool),
 	}
 }
 
@@ -79,21 +84,30 @@ func (m *MemRegistry) RegisterSource(s Source) error {
 	return nil
 }
 
+func (m *MemRegistry) LinkConsumerSource(consumerID, sourceID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.consumerSources[consumerID] == nil {
+		m.consumerSources[consumerID] = make(map[uuid.UUID]bool)
+	}
+	m.consumerSources[consumerID][sourceID] = true
+	return nil
+}
+
 func (m *MemRegistry) ResolveSources(consumerID uuid.UUID) ([]Source, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var out []Source
-	// Universal sources first
 	var universal, specific []Source
 	for _, s := range m.sources {
 		if s.Scope == ScopeUniversal {
 			universal = append(universal, s)
 		} else if s.Scope == ScopeTargetSpecific {
-			specific = append(specific, s)
+			if m.consumerSources[consumerID] != nil && m.consumerSources[consumerID][s.ID] {
+				specific = append(specific, s)
+			}
 		}
 	}
-	out = append(out, universal...)
-	out = append(out, specific...)
+	out := append(universal, specific...)
 	return out, nil
 }
 
@@ -162,8 +176,8 @@ func (m *MemRegistry) UpdateEntryMeta(entryID uuid.UUID, updates MetaUpdates) er
 	if updates.Final != nil {
 		e.Final = *updates.Final
 	}
-	if updates.PrimitiveOverride != nil {
-		e.PrimitiveOverride = *updates.PrimitiveOverride
+	if updates.ComposeMode != nil {
+		e.ComposeMode = **updates.ComposeMode
 	}
 	m.entries[entryID] = e
 	return nil
@@ -195,4 +209,100 @@ func (m *MemRegistry) LastDeployment(consumerID uuid.UUID) (Deployment, []Deploy
 		return Deployment{}, nil, ErrNoDeployment
 	}
 	return *latest, m.depEntries[latestID], nil
+}
+
+// Slot operations.
+
+func (m *MemRegistry) RegisterSlot(s Slot) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.slots[s.ID] = s
+	return nil
+}
+
+func (m *MemRegistry) UpdateSlot(slotID uuid.UUID, updates SlotUpdates) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	s, ok := m.slots[slotID]
+	if !ok {
+		return ErrNotFound
+	}
+	if updates.Name != nil {
+		s.Name = *updates.Name
+	}
+	if updates.DestPath != nil {
+		s.DestPath = *updates.DestPath
+	}
+	if updates.ComposeMode != nil {
+		s.ComposeMode = *updates.ComposeMode
+	}
+	m.slots[slotID] = s
+	return nil
+}
+
+func (m *MemRegistry) RemoveSlot(slotID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.slots[slotID]; !ok {
+		return ErrNotFound
+	}
+	delete(m.slots, slotID)
+	delete(m.entrySlots, slotID)
+	return nil
+}
+
+func (m *MemRegistry) ResolveSlots(consumerID uuid.UUID) ([]Slot, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var out []Slot
+	for _, s := range m.slots {
+		if s.ConsumerID == consumerID {
+			out = append(out, s)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+func (m *MemRegistry) LinkEntrySlot(entryID, slotID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.entrySlots[slotID] == nil {
+		m.entrySlots[slotID] = make(map[uuid.UUID]bool)
+	}
+	m.entrySlots[slotID][entryID] = true
+	return nil
+}
+
+func (m *MemRegistry) UnlinkEntrySlot(entryID, slotID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.entrySlots[slotID] == nil || !m.entrySlots[slotID][entryID] {
+		return ErrNotFound
+	}
+	delete(m.entrySlots[slotID], entryID)
+	return nil
+}
+
+func (m *MemRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]Entry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var out []Entry
+	for eID := range m.entrySlots[slotID] {
+		if e, ok := m.entries[eID]; ok {
+			out = append(out, e)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Type != out[j].Type {
+			return out[i].Type < out[j].Type
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out, nil
+}
+
+// Close implements Registry. No-op for in-memory registry.
+func (m *MemRegistry) Close() error {
+	return nil
 }

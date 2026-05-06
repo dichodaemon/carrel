@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/dichodaemon/carrel/internal/composer"
@@ -32,7 +33,7 @@ const (
 // CollisionResult records a single collision encountered during deployment.
 type CollisionResult struct {
 	Path        string
-	ForeignHash uint64
+	ForeignHash int64
 	Action      ConflictAction
 }
 
@@ -87,7 +88,7 @@ func Deploy(
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", f.DestinationPath, err)
 		}
-		existingHash := xxhash.Sum64(existingData)
+		existingHash := int64(xxhash.Sum64(existingData))
 
 		prev, isClaimed := prevByPath[f.DestinationPath]
 		if isClaimed && prev.ContentHash == existingHash {
@@ -193,7 +194,7 @@ func cleanupStale(
 			continue
 		}
 
-		actualHash := xxhash.Sum64(data)
+		actualHash := int64(xxhash.Sum64(data))
 		if actualHash == prev.ContentHash {
 			if !dryRun {
 				if err := os.Remove(path); err != nil {
@@ -214,4 +215,50 @@ func cleanupStale(
 	}
 
 	return collisions
+}
+
+// EnsureGitExclude adds .omp/ and AGENTS.md to .git/info/exclude
+// if the repo doesn't have a .carrel/ opt-in marker.
+func EnsureGitExclude(repoPath string) error {
+	// Only add exclude for repos without .carrel opt-in
+	if _, err := os.Stat(filepath.Join(repoPath, ".carrel")); err == nil {
+		return nil // opt-in repo, skip
+	}
+
+	excludePath := filepath.Join(repoPath, ".git", "info", "exclude")
+
+	// Create .git/info directory if missing
+	if err := os.MkdirAll(filepath.Dir(excludePath), 0755); err != nil {
+		return err
+	}
+
+	// Read existing exclude content
+	existing, _ := os.ReadFile(excludePath)
+	existingStr := string(existing)
+
+	// Patterns to add
+	patterns := []string{".omp/", "AGENTS.md"}
+	var toAdd []string
+	for _, p := range patterns {
+		if !strings.Contains(existingStr, p) {
+			toAdd = append(toAdd, p)
+		}
+	}
+	if len(toAdd) == 0 {
+		return nil
+	}
+
+	// Append new patterns
+	f, err := os.OpenFile(excludePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for _, p := range toAdd {
+		if _, err := fmt.Fprintf(f, "%s\n", p); err != nil {
+			return err
+		}
+	}
+	return nil
 }

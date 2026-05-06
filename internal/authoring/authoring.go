@@ -36,7 +36,7 @@ func AddEntry(reg registry.Registry, typ registry.CapabilityType, name string, s
 		Name:         name,
 		Type:         typ,
 		RelativePath: relPath,
-		ContentHash:  xxhash.Sum64(content),
+		ContentHash:  int64(xxhash.Sum64(content)),
 		CreatedBy:    registry.OriginCarrel,
 	}
 
@@ -78,7 +78,7 @@ func EditEntry(reg registry.Registry, typ registry.CapabilityType, name string, 
 		return err
 	}
 
-	newHash := xxhash.Sum64(newContent)
+	newHash := int64(xxhash.Sum64(newContent))
 	entry.ContentHash = newHash
 
 	// Re-register to update the stored entry.

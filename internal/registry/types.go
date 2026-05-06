@@ -19,8 +19,9 @@ const (
 type Consumer struct {
 	ID    uuid.UUID    // Immutable, assigned at registration
 	Alias string       // Mutable, unique, initialized from path basename
-	Path  string       // Mutable, absolute path on disk
-	Kind  ConsumerKind // Repo, Container, Host
+	Path       string       // Mutable, absolute path on disk
+	DeployRoot string       // Deployment root for this consumer (e.g., <path>/.omp, /home/dev)
+	Kind       ConsumerKind // Repo, Container, Host
 }
 
 // SourceScope determines which consumers a source applies to.
@@ -82,6 +83,16 @@ const (
 	PrimitiveInheritance
 )
 
+// ComposeMode is an alias for Primitive for use in entries and slots.
+// It carries the same values (Override=0, Concatenation=1) but is named
+// to reflect its role as a composition operator, not a general primitive.
+type ComposeMode = Primitive
+
+const (
+	ModeOverride      ComposeMode = PrimitiveOverride
+	ModeConcatenation ComposeMode = PrimitiveConcatenation
+)
+
 // EntryOrigin records who created the entry.
 type EntryOrigin int
 
@@ -97,9 +108,9 @@ type Entry struct {
 	Name              string         // Entry name (e.g., "no-pushing-master")
 	Type              CapabilityType // Rule, Skill, Command, etc.
 	RelativePath      string         // Path relative to source root
-	ContentHash       uint64         // xxHash of file content at last sync
+	ContentHash       int64          // xxHash of file content at last sync
 	Final             bool           // If true, deeper scopes cannot override
-	PrimitiveOverride *Primitive     // nil = use type default
+	ComposeMode       ComposeMode    // override or concatenation (mandatory, set by scan from convention)
 	CreatedBy         EntryOrigin    // Carrel or UserAuthored
 }
 
@@ -109,13 +120,36 @@ type Deployment struct {
 	ConsumerID  uuid.UUID
 	AttemptedAt time.Time
 	SucceededAt *time.Time // nil if attempt failed
-	ConfigHash  uint64     // xxHash of the composed output plan
+	ConfigHash  int64     // xxHash of the composed output plan
 }
 
 // DeploymentEntry records a deployed file from a deployment.
 type DeploymentEntry struct {
 	DeploymentID uuid.UUID
 	Path         string    // Absolute destination path
-	ContentHash  uint64    // xxHash of deployed content
+	ContentHash  int64     // xxHash of deployed content
 	SourceEntry  uuid.UUID // FK to Entry that produced this
+	SlotID       uuid.UUID // FK to Slot that produced this (v3)
+}
+
+// Slot is an output target for a specific consumer.
+type Slot struct {
+	ID          uuid.UUID
+	ConsumerID  uuid.UUID
+	Name        string       // Human-readable name, unique per consumer
+	DestPath    string       // Relative path from consumer's deploy_root
+	ComposeMode *ComposeMode // nil = use entry-level modes; set = override
+}
+
+// SlotUpdates carries optional changes for UpdateSlot.
+type SlotUpdates struct {
+	Name        *string
+	DestPath    *string
+	ComposeMode **ComposeMode // nil = no change; *nil = clear; set = override
+}
+
+// EntrySlot maps an entry to a slot (N:M).
+type EntrySlot struct {
+	EntryID uuid.UUID
+	SlotID  uuid.UUID
 }

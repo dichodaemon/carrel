@@ -85,39 +85,3 @@ func TestDiscoverRegistered(t *testing.T) {
 	}
 }
 
-func TestMigrate(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "carrel-scanner-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	repoPath := filepath.Join(tmpDir, "test-repo")
-	os.MkdirAll(filepath.Join(repoPath, ".git"), 0755)
-
-	targetDir := filepath.Join(tmpDir, "target-config")
-	os.MkdirAll(targetDir, 0755)
-	os.Symlink(targetDir, filepath.Join(repoPath, ".omp"))
-
-	reg := registry.NewMemRegistry()
-	results, err := scanner.Migrate(reg, tmpDir)
-	if err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("got %d results, want 1", len(results))
-	}
-	if !results[0].Success {
-		t.Errorf("migration failed: %v", results[0].Error)
-	}
-
-	// Verify consumer was registered
-	c, err := reg.ResolveConsumer(repoPath)
-	if err != nil {
-		t.Fatalf("consumer not registered: %v", err)
-	}
-	if c.Alias != "test-repo" {
-		t.Errorf("alias: got %s, want test-repo", c.Alias)
-	}
-}

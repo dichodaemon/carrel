@@ -1,10 +1,12 @@
 package scanner
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/uuid"
 
 	"github.com/dichodaemon/carrel/internal/registry"
@@ -61,75 +63,215 @@ func Discover(reg registry.Registry, workspacePath string) ([]DiscoveredRepo, er
 	return repos, nil
 }
 
-// MigrationResult records the outcome of migrating a single carula repo.
-type MigrationResult struct {
-	Path       string
-	Success    bool
-	Error      error
-	ConsumerID uuid.UUID
+// ScanResult records the outcome of scanning for one entry.
+type ScanResult struct {
+	Name   string
+	Type   string // human-readable type name
+	Action string // "registered", "skipped", or "error"
+	Error  error
 }
 
-// Migrate imports carula-style .omp/ symlink targets into the registry.
-func Migrate(reg registry.Registry, workspacePath string) ([]MigrationResult, error) {
-	entries, err := os.ReadDir(workspacePath)
+// ScanSource walks a source directory and registers any files matching
+// capability type conventions. Already-registered entries are skipped.
+func ScanSource(reg registry.Registry, source registry.Source) ([]ScanResult, error) {
+	entries, err := reg.ResolveEntries([]uuid.UUID{source.ID})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve entries: %w", err)
+	}
+	existing := make(map[string]bool)
+	for _, e := range entries {
+		existing[fmt.Sprintf("%d:%s", e.Type, e.Name)] = true
 	}
 
-	var results []MigrationResult
-	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
-			continue
-		}
-		repoPath := filepath.Join(workspacePath, e.Name())
-		if !isGitRepo(repoPath) {
-			continue
-		}
+	var results []ScanResult
 
-		ompPath := filepath.Join(repoPath, ".omp")
-		fi, err := os.Lstat(ompPath)
-		if err != nil || fi.Mode()&os.ModeSymlink == 0 {
-			continue
-		}
+	for typ, conv := range registry.Conventions {
+		if conv.Dir != "" {
+			typeDir := filepath.Join(source.Path, conv.Dir)
+			if info, err := os.Stat(typeDir); err != nil || !info.IsDir() {
+				continue
+			}
 
-		target, err := os.Readlink(ompPath)
-		if err != nil {
-			results = append(results, MigrationResult{Path: repoPath, Error: err})
-			continue
+			if typ == registry.TypeSkill {
+				results = append(results, scanSkillDir(reg, source, typ, typeDir, conv, existing)...)
+			} else if conv.IsSingleton {
+				results = append(results, scanSingleton(reg, source, typ, typeDir, conv, existing)...)
+			} else {
+				// Pass singleton file names for this directory so scanFileDir can exclude them
+				singles := singletonFiles(typeDir)
+				results = append(results, scanFileDir(reg, source, typ, typeDir, conv, existing, singles)...)
+			}
+		} else if conv.IsSingleton {
+			results = append(results, scanSingleton(reg, source, typ, source.Path, conv, existing)...)
 		}
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(repoPath, target)
-		}
-
-		alias := e.Name()
-		c := registry.Consumer{
-			ID:    uuid.New(),
-			Alias: alias,
-			Path:  repoPath,
-			Kind:  registry.ConsumerRepo,
-		}
-		if err := reg.RegisterConsumer(c); err != nil {
-			results = append(results, MigrationResult{Path: repoPath, Error: err})
-			continue
-		}
-
-		s := registry.Source{
-			ID:    uuid.New(),
-			Alias: alias + "-omp",
-			Path:  target,
-			Scope: registry.ScopeTargetSpecific,
-			Kind:  registry.SourceGitBacked,
-		}
-		_ = reg.RegisterSource(s)
-
-		results = append(results, MigrationResult{
-			Path:       repoPath,
-			Success:    true,
-			ConsumerID: c.ID,
-		})
 	}
 
 	return results, nil
+}
+
+// singletonFiles returns the set of filenames that are claimed by singleton
+// conventions in the same directory (e.g., p10k.zsh in config/zsh).
+func singletonFiles(dir string) map[string]bool {
+	out := make(map[string]bool)
+	for _, conv := range registry.Conventions {
+		if conv.IsSingleton && conv.Dir != "" {
+			sDir := conv.Dir
+			if strings.HasSuffix(dir, "/"+sDir) || dir == sDir {
+				out[conv.SingletonName] = true
+			}
+		}
+	}
+	return out
+}
+
+func scanFileDir(reg registry.Registry, source registry.Source, typ registry.CapabilityType, dir string, conv registry.Convention, existing map[string]bool, singletons map[string]bool) []ScanResult {
+	dummy := conv.FileName("_")
+	suffix := strings.TrimPrefix(dummy, "_")
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return []ScanResult{{Name: dir, Type: "", Action: "error", Error: err}}
+	}
+
+	var results []ScanResult
+	for _, f := range files {
+		if f.IsDir() || !strings.HasSuffix(f.Name(), suffix) {
+			continue
+		}
+		if singletons[f.Name()] {
+			continue // claimed by a singleton convention
+		}
+		name := strings.TrimSuffix(f.Name(), suffix)
+		key := fmt.Sprintf("%d:%s", typ, name)
+		if existing[key] {
+			results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "skipped"})
+			continue
+		}
+
+		fullPath := filepath.Join(dir, f.Name())
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "error", Error: err})
+			continue
+		}
+
+		relPath := conv.Dir + "/" + f.Name()
+		entry := registry.Entry{
+			ID:           uuid.New(),
+			SourceID:     source.ID,
+			Name:         name,
+			Type:         typ,
+			RelativePath: relPath,
+			ContentHash:  int64(xxhash.Sum64(content)),
+			ComposeMode:  registry.ComposeMode(conv.DefaultPrimitive),
+			CreatedBy:    registry.OriginCarrel,
+		}
+		if err := reg.RegisterEntry(entry); err != nil {
+			results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "error", Error: err})
+			continue
+		}
+		results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "registered"})
+	}
+	return results
+}
+
+func scanSkillDir(reg registry.Registry, source registry.Source, typ registry.CapabilityType, skillsDir string, conv registry.Convention, existing map[string]bool) []ScanResult {
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		return []ScanResult{{Name: skillsDir, Type: "", Action: "error", Error: err}}
+	}
+
+	var results []ScanResult
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		key := fmt.Sprintf("%d:%s", typ, name)
+		if existing[key] {
+			results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "skipped"})
+			continue
+		}
+
+		skillFile := filepath.Join(skillsDir, name, "SKILL.md")
+		content, err := os.ReadFile(skillFile)
+		if err != nil {
+			results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "error", Error: err})
+			continue
+		}
+
+		relPath := conv.Dir + "/" + name + "/SKILL.md"
+		entry := registry.Entry{
+			ID:           uuid.New(),
+			SourceID:     source.ID,
+			Name:         name,
+			Type:         typ,
+			RelativePath: relPath,
+			ContentHash:  int64(xxhash.Sum64(content)),
+			ComposeMode:  registry.ComposeMode(conv.DefaultPrimitive),
+			CreatedBy:    registry.OriginCarrel,
+		}
+		if err := reg.RegisterEntry(entry); err != nil {
+			results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "error", Error: err})
+			continue
+		}
+		results = append(results, ScanResult{Name: name, Type: convTypeName(typ), Action: "registered"})
+	}
+	return results
+}
+
+func scanSingleton(reg registry.Registry, source registry.Source, typ registry.CapabilityType, dir string, conv registry.Convention, existing map[string]bool) []ScanResult {
+	name := conv.SingletonName
+	filePath := filepath.Join(dir, name)
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil
+	}
+
+	key := fmt.Sprintf("%d:%s", typ, name)
+	if existing[key] {
+		return []ScanResult{{Name: name, Type: convTypeName(typ), Action: "skipped"}}
+	}
+
+	relPath := name
+	if conv.Dir != "" {
+		relPath = conv.Dir + "/" + name
+	}
+	entry := registry.Entry{
+		ID:           uuid.New(),
+		SourceID:     source.ID,
+		Name:         name,
+		Type:         typ,
+		RelativePath: relPath,
+		ContentHash:  int64(xxhash.Sum64(content)),
+		ComposeMode:  registry.ComposeMode(conv.DefaultPrimitive),
+		CreatedBy:    registry.OriginCarrel,
+	}
+	if err := reg.RegisterEntry(entry); err != nil {
+		return []ScanResult{{Name: name, Type: convTypeName(typ), Action: "error", Error: err}}
+	}
+	return []ScanResult{{Name: name, Type: convTypeName(typ), Action: "registered"}}
+}
+
+func convTypeName(typ registry.CapabilityType) string {
+	switch typ {
+	case registry.TypeRule:          return "rule"
+	case registry.TypeSkill:         return "skill"
+	case registry.TypeCommand:       return "command"
+	case registry.TypeExtension:     return "extension"
+	case registry.TypeAgent:         return "agent"
+	case registry.TypeTool:          return "tool"
+	case registry.TypeHook:          return "hook"
+	case registry.TypePrompt:        return "prompt"
+	case registry.TypeInstruction:   return "instruction"
+	case registry.TypeContextFile:   return "context-file"
+	case registry.TypeAppendSystem:  return "append-system"
+	case registry.TypeZshConfig:     return "zsh"
+	case registry.TypeNvimConfig:    return "nvim"
+	case registry.TypeWeztermConfig: return "wezterm"
+	case registry.TypeP10kConfig:    return "p10k"
+	}
+	return fmt.Sprintf("type-%d", typ)
 }
 
 func isGitRepo(path string) bool {

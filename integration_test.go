@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -131,25 +132,6 @@ func TestRunDryRun(t *testing.T) {
 	}
 }
 
-// TestMigrateCreatesConsumers verifies migration from carula symlinks.
-func TestMigrateCreatesConsumers(t *testing.T) {
-	buildCarrelBin(t)
-	exec.Command(carrelBin, "bootstrap").Run()
-
-	// Create a carula-style repo with symlink
-	tmpDir, _ := os.MkdirTemp("/home/dev", "carrel-test-migrate-*")
-	defer os.RemoveAll(tmpDir)
-
-	repoPath := filepath.Join(tmpDir, "test-repo")
-	os.MkdirAll(filepath.Join(repoPath, ".git"), 0755)
-	targetDir := filepath.Join(tmpDir, "target-omp")
-	os.MkdirAll(targetDir, 0755)
-	os.Symlink(targetDir, filepath.Join(repoPath, ".omp"))
-
-	// Note: migrate scans /workspace, not the temp dir. We'd need to change
-	// scanner.Migrate to accept a path parameter. For now, skip the full test.
-	t.Skip("migrate currently hardcodes /workspace")
-}
 
 // TestCRUDAddAndList tests rule add and list commands.
 func TestCRUDAddAndList(t *testing.T) {
@@ -492,6 +474,22 @@ func TestDeployedShowsStatus(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
+	// Set up a deployment claim via registry
+	reg := openRegistry(t)
+	defer reg.Close()
+	consumer, _ := reg.ResolveConsumer("carrel")
+	deploymentID := uuid.New()
+	now := time.Now()
+	reg.RecordDeployment(registry.Deployment{
+		ID: deploymentID, ConsumerID: consumer.ID,
+		AttemptedAt: now, SucceededAt: &now,
+	}, []registry.DeploymentEntry{{
+		DeploymentID: deploymentID,
+		Path:         "/workspace/carrel/.omp/rules/test.md",
+		ContentHash:  42,
+		SourceEntry:  uuid.New(),
+	}})
+
 	cmd := exec.Command(carrelBin, "deployed")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -585,17 +583,31 @@ func TestInspectDeployedFile(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
+	// Set up a deployment claim
+	reg := openRegistry(t)
+	defer reg.Close()
+	consumer, _ := reg.ResolveConsumer("carrel")
+	deploymentID := uuid.New()
+	now := time.Now()
+	reg.RecordDeployment(registry.Deployment{
+		ID: deploymentID, ConsumerID: consumer.ID,
+		AttemptedAt: now, SucceededAt: &now,
+	}, []registry.DeploymentEntry{{
+		DeploymentID: deploymentID,
+		Path:         "/workspace/carrel/.omp/rules/no-push-oh-my-pi.md",
+		ContentHash:  42,
+		SourceEntry:  uuid.New(),
+	}})
+
 	cmd := exec.Command(carrelBin, "inspect", "carrel:/workspace/carrel/.omp/rules/no-push-oh-my-pi.md")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("inspect deployed failed: %v\n%s", err, out)
 	}
-	output := string(out)
-	if !strings.Contains(output, "Content") {
+	if !strings.Contains(string(out), "Content") {
 		t.Error("inspect deployed should show content")
 	}
 }
-
 func TestTraceSource(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
@@ -615,13 +627,28 @@ func TestTraceDeployed(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
+	// Set up a deployment claim
+	reg := openRegistry(t)
+	defer reg.Close()
+	consumer, _ := reg.ResolveConsumer("carrel")
+	deploymentID := uuid.New()
+	now := time.Now()
+	reg.RecordDeployment(registry.Deployment{
+		ID: deploymentID, ConsumerID: consumer.ID,
+		AttemptedAt: now, SucceededAt: &now,
+	}, []registry.DeploymentEntry{{
+		DeploymentID: deploymentID,
+		Path:         "/workspace/carrel/.omp/rules/no-push-oh-my-pi.md",
+		ContentHash:  42,
+		SourceEntry:  uuid.New(),
+	}})
+
 	cmd := exec.Command(carrelBin, "trace", "carrel:/workspace/carrel/.omp/rules/no-push-oh-my-pi.md")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("trace deployed failed: %v\n%s", err, out)
 	}
-	output := string(out)
-	if !strings.Contains(output, "carrel-omp") {
+	if !strings.Contains(string(out), "carrel-omp") {
 		t.Error("trace deployed should show source")
 	}
 }

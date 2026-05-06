@@ -21,9 +21,9 @@ func makeFile(dest string, content []byte, sourceID uuid.UUID) composer.OutputFi
 	return composer.OutputFile{
 		DestinationPath: dest,
 		Content:         content,
-		ContentHash:     xxhash.Sum64(content),
+		ContentHash:     int64(xxhash.Sum64(content)),
 		SourceEntries:   []uuid.UUID{sourceID},
-		Primitive:       registry.PrimitiveOverride,
+		Mode:            composer.ModeOverride,
 	}
 }
 
@@ -39,8 +39,8 @@ func writeTemp(t *testing.T, dir, relPath string, content []byte) string {
 	return full
 }
 
-func mustHash(data []byte) uint64 {
-	return xxhash.Sum64(data)
+func mustHash(data []byte) int64 {
+	return int64(xxhash.Sum64(data))
 }
 
 func TestDeployWritesFilesNoConflicts(t *testing.T) {

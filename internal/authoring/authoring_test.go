@@ -56,7 +56,7 @@ func TestAddEntry(t *testing.T) {
 	if entry.RelativePath != wantRelPath {
 		t.Errorf("RelativePath = %q, want %q", entry.RelativePath, wantRelPath)
 	}
-	wantHash := xxhash.Sum64(content)
+	wantHash := int64(xxhash.Sum64(content))
 	if entry.ContentHash != wantHash {
 		t.Errorf("ContentHash = %d, want %d", entry.ContentHash, wantHash)
 	}
@@ -181,7 +181,7 @@ func TestEditEntry(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("got %d entries, want 1", len(entries))
 	}
-	wantHash := xxhash.Sum64(newContent)
+	wantHash := int64(xxhash.Sum64(newContent))
 	if entries[0].ContentHash != wantHash {
 		t.Errorf("ContentHash = %d, want %d", entries[0].ContentHash, wantHash)
 	}
@@ -200,8 +200,8 @@ func TestUpdateEntryMeta(t *testing.T) {
 	concat := registry.PrimitiveConcatenation
 	concatPtr := &concat
 	updates := registry.MetaUpdates{
-		Final:             &final,
-		PrimitiveOverride: &concatPtr,
+		Final:       &final,
+		ComposeMode: &concatPtr,
 	}
 
 	if err := UpdateEntryMeta(reg, registry.TypeRule, "meta-rule", updates); err != nil {
@@ -219,10 +219,11 @@ func TestUpdateEntryMeta(t *testing.T) {
 	if !entries[0].Final {
 		t.Error("Final should be true")
 	}
-	if entries[0].PrimitiveOverride == nil || *entries[0].PrimitiveOverride != concat {
-		t.Errorf("PrimitiveOverride = %v, want %v", entries[0].PrimitiveOverride, concat)
+	if entries[0].ComposeMode != concat {
+		t.Errorf("ComposeMode = %v, want %v", entries[0].ComposeMode, concat)
 	}
 }
+
 
 func TestUpdateEntryMetaNotFound(t *testing.T) {
 	reg, _ := setup(t)

@@ -104,7 +104,7 @@ func (q *queryImpl) ListDeployed(opts DeployQueryOpts) ([]DeployResult, error) {
 		}
 
 		for _, e := range entries {
-			var claimHash, actualHash uint64
+			var claimHash, actualHash int64
 			var status DeployStatus
 
 			if opts.Actual && !opts.Claims {
@@ -157,40 +157,61 @@ func (q *queryImpl) Plan(consumerAlias string) ([]PlanResult, error) {
 		return nil, fmt.Errorf("consumer %q: %w", consumerAlias, err)
 	}
 
-	sources, err := q.ResolveSources(c.ID)
+	rSlots, err := q.ResolveSlots(c.ID)
 	if err != nil {
-		return nil, err
-	}
-	var sourceIDs []uuid.UUID
-	for _, s := range sources {
-		sourceIDs = append(sourceIDs, s.ID)
-	}
-	entries, err := q.ResolveEntries(sourceIDs)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve slots: %w", err)
 	}
 
-	plan, err := composer.Compose(c, sources, entries)
+	// Build composer slots and entry map
+	var cSlots []composer.Slot
+	entrySlots := make(map[uuid.UUID][]composer.Entry)
+	entryLookup := make(map[uuid.UUID]registry.Entry)
+	sourcePaths := make(map[uuid.UUID]string)
+
+	for _, s := range rSlots {
+		cSlots = append(cSlots, composer.Slot{
+			ID:              s.ID,
+			ConsumerID:      s.ConsumerID,
+			Name:            s.Name,
+			DestinationPath: c.DeployRoot + "/" + s.DestPath,
+		})
+
+		entries, eErr := q.ResolveEntrySlots(s.ID)
+		if eErr != nil {
+			continue
+		}
+		var cEntries []composer.Entry
+		for _, e := range entries {
+			cEntries = append(cEntries, composer.Entry{
+				ID:       e.ID,
+				SourceID: e.SourceID,
+				Mode:     composer.ComposeMode(e.ComposeMode),
+				Final:    e.Final,
+			})
+			entryLookup[e.ID] = e
+		}
+		entrySlots[s.ID] = cEntries
+	}
+
+	// Resolve source paths for content resolution
+	sources, _ := q.ListSources()
+	for _, s := range sources {
+		sourcePaths[s.ID] = s.Path
+	}
+
+	plan, err := composer.Compose(c.ID, cSlots, entrySlots)
 	if err != nil {
 		return nil, fmt.Errorf("compose: %w", err)
 	}
 
 	// Resolve content
 	for i := range plan.Files {
-		if err := resolvePlanContent(&plan.Files[i], entries, sources); err != nil {
-			return nil, fmt.Errorf("resolve content for %s: %w", plan.Files[i].DestinationPath, err)
-		}
-	}
-
-	// Make paths absolute
-	ompDir := filepath.Join(c.Path, ".omp")
-	for i := range plan.Files {
-		plan.Files[i].DestinationPath = filepath.Join(ompDir, plan.Files[i].DestinationPath)
+		resolvePlanContent(&plan.Files[i], entryLookup, sourcePaths)
 	}
 
 	// Compare against last deployment
 	_, prevEntries, _ := q.LastDeployment(c.ID)
-	prevMap := make(map[string]uint64)
+	prevMap := make(map[string]int64)
 	for _, e := range prevEntries {
 		prevMap[e.Path] = e.ContentHash
 	}
@@ -398,17 +419,7 @@ func (q *queryImpl) TraceDeployed(consumerAlias string, path string) ([]TraceRes
 	return results, nil
 }
 
-// resolvePlanContent resolves content for a planned output file.
-func resolvePlanContent(f *composer.OutputFile, entries []registry.Entry, sources []registry.Source) error {
-	sourcePaths := make(map[uuid.UUID]string)
-	for _, s := range sources {
-		sourcePaths[s.ID] = s.Path
-	}
-	entryLookup := make(map[uuid.UUID]registry.Entry)
-	for _, e := range entries {
-		entryLookup[e.ID] = e
-	}
-
+func resolvePlanContent(f *composer.OutputFile, entryLookup map[uuid.UUID]registry.Entry, sourcePaths map[uuid.UUID]string) {
 	var allContent []byte
 	for _, eID := range f.SourceEntries {
 		e, ok := entryLookup[eID]
@@ -422,13 +433,24 @@ func resolvePlanContent(f *composer.OutputFile, entries []registry.Entry, source
 		filePath := filepath.Join(srcPath, e.RelativePath)
 		data, err := os.ReadFile(filePath)
 		if err != nil {
-			return err
+			continue
 		}
 		allContent = append(allContent, data...)
 	}
 	f.Content = allContent
 	f.ContentHash = hashData(allContent)
-	return nil
+}
+
+func (q *queryImpl) ListSlots(consumerAlias string) ([]registry.Slot, error) {
+	c, err := q.ResolveConsumer(consumerAlias)
+	if err != nil {
+		return nil, fmt.Errorf("consumer %q: %w", consumerAlias, err)
+	}
+	return q.ResolveSlots(c.ID)
+}
+
+func (q *queryImpl) ListSlotEntries(slotID uuid.UUID) ([]registry.Entry, error) {
+	return q.ResolveEntrySlots(slotID)
 }
 
 func typeName(typ registry.CapabilityType) string {
@@ -455,6 +477,6 @@ func typeName(typ registry.CapabilityType) string {
 	return fmt.Sprintf("type-%d", typ)
 }
 
-func hashData(data []byte) uint64 {
-	return xxhash.Sum64(data)
+func hashData(data []byte) int64 {
+	return int64(xxhash.Sum64(data))
 }

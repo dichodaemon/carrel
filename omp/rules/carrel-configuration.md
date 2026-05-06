@@ -46,6 +46,13 @@ Universal sources are inherited by all consumers. Deeper scopes override shallow
   - Target-specific: `<target>/.carrel/<type>/` or `<target>-config/omp/<type>/` — only that consumer.
 - **Restart the OMP session** after modifying configuration (most config is loaded at init).
 
+
+## Beads task tracking
+
+- **Never close a bead unless the work is done.** Closing means the deliverable is verifiably complete, not deferred, not "follow-up," not "assumed done." A bead is a contract — close it when the tests pass and the code is committed.
+- **If work cannot be completed,** leave the bead open. Do not close with reasons like "tracked for follow-up" or "not blocking current milestone." Open beads are the system's source of truth for remaining work.
+- **Before closing, verify:** (1) the code compiles, (2) tests pass for affected packages, (3) git status shows the intended changes. If any of these is false, the bead is not done.
+
 ## Common operations
 
 ### Adding a rule, skill, or command
