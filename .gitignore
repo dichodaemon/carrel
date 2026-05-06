@@ -9,3 +9,8 @@
 /carrel
 .omp/
 .env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
