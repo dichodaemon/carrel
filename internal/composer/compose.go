@@ -1,6 +1,8 @@
 package composer
 
 import (
+	"sort"
+
 	"github.com/google/uuid"
 )
 
@@ -64,17 +66,44 @@ func Compose(consumerID uuid.UUID, slots []Slot, entrySlots map[uuid.UUID][]Entr
 	return plan, nil
 }
 
-// composeOverrideSlot: last entry in slot order wins (scan assigns in source scope order).
+// composeOverrideSlot sorts entries by priority (low to high), then enforces the
+// final flag: the highest-priority entry at or below any final flag wins.
+// Entries from higher-priority sources than a final entry are excluded.
 func composeOverrideSlot(entries []Entry) []uuid.UUID {
-	winner := entries[len(entries)-1]
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Priority < entries[j].Priority
+	})
+
+	// Find the cutoff: highest priority at or below a final entry
+	cutoff := len(entries)
+	for i, e := range entries {
+		if e.Final && i+1 < cutoff {
+			cutoff = i + 1
+		}
+	}
+
+	winner := entries[cutoff-1]
 	return []uuid.UUID{winner.ID}
 }
 
-// composeConcatSlot: all entries contribute in slot order.
+// composeConcatSlot sorts entries by priority and returns all contributing entries
+// in priority order (low to high). final flag excludes higher-priority entries.
 func composeConcatSlot(entries []Entry) []uuid.UUID {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Priority < entries[j].Priority
+	})
+
+	// Find the cutoff from final flag
+	cutoff := len(entries)
+	for i, e := range entries {
+		if e.Final && i+1 < cutoff {
+			cutoff = i + 1
+		}
+	}
+
 	var ids []uuid.UUID
-	for _, e := range entries {
-		ids = append(ids, e.ID)
+	for i := 0; i < cutoff; i++ {
+		ids = append(ids, entries[i].ID)
 	}
 	return ids
 }
@@ -94,4 +123,5 @@ type Entry struct {
 	SourceID  uuid.UUID
 	Mode      ComposeMode
 	Final     bool
+	Priority  int
 }

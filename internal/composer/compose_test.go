@@ -8,9 +8,13 @@ import (
 	"github.com/dichodaemon/carrel/internal/composer"
 )
 
-func TestOverrideLastEntryWins(t *testing.T) {
+func TestOverrideFinalFlagTruncatesHigherPriority(t *testing.T) {
 	consumerID := uuid.New()
 	slotID := uuid.New()
+
+	eLow := uuid.New()
+	eFinal := uuid.New() // final at priority 1
+	eHigh := uuid.New()  // priority 2, should be excluded
 
 	slots := []composer.Slot{{
 		ID:              slotID,
@@ -20,24 +24,15 @@ func TestOverrideLastEntryWins(t *testing.T) {
 	}}
 	entries := map[uuid.UUID][]composer.Entry{
 		slotID: {
-			{ID: uuid.New(), Mode: composer.ModeOverride},
-			{ID: uuid.New(), Mode: composer.ModeOverride},
+			{ID: eLow, Mode: composer.ModeOverride, Priority: 0},
+			{ID: eFinal, Mode: composer.ModeOverride, Priority: 1, Final: true},
+			{ID: eHigh, Mode: composer.ModeOverride, Priority: 2},
 		},
 	}
 
-	plan, err := composer.Compose(consumerID, slots, entries)
-	if err != nil {
-		t.Fatalf("Compose: %v", err)
-	}
-	if len(plan.Files) != 1 {
-		t.Fatalf("got %d files, want 1", len(plan.Files))
-	}
-	// Last entry in slot order wins
-	if plan.Files[0].SourceEntries[0] != entries[slotID][1].ID {
-		t.Error("last entry should win")
-	}
-	if plan.Files[0].Mode != composer.ModeOverride {
-		t.Error("mode should be override")
+	plan, _ := composer.Compose(consumerID, slots, entries)
+	if plan.Files[0].SourceEntries[0] != eFinal {
+		t.Error("final entry should win, higher priority excluded")
 	}
 }
 
@@ -163,5 +158,110 @@ func TestComposeIsDeterministic(t *testing.T) {
 	p2, _ := composer.Compose(consumerID, slots, entries)
 	if p1.Files[0].SlotID != p2.Files[0].SlotID {
 		t.Error("identical inputs should produce identical outputs")
+	}
+}
+
+
+func TestOverrideHighestPriorityWins(t *testing.T) {
+	consumerID := uuid.New()
+	slotID := uuid.New()
+
+	eLow := uuid.New()
+	eHigh := uuid.New()
+
+	slots := []composer.Slot{{
+		ID: slotID, ConsumerID: consumerID, Name: "rule", DestinationPath: "r.md",
+	}}
+	entries := map[uuid.UUID][]composer.Entry{
+		slotID: {
+			{ID: eLow, Mode: composer.ModeOverride, Priority: 0},
+			{ID: eHigh, Mode: composer.ModeOverride, Priority: 3},
+		},
+	}
+
+	plan, _ := composer.Compose(consumerID, slots, entries)
+	if plan.Files[0].SourceEntries[0] != eHigh {
+		t.Error("highest priority entry should win override")
+	}
+}
+
+func TestOverrideFinalFlagAtHighestPriorityWins(t *testing.T) {
+	consumerID := uuid.New()
+	slotID := uuid.New()
+
+	eLow := uuid.New()
+	eFinal := uuid.New()
+
+	slots := []composer.Slot{{
+		ID: slotID, ConsumerID: consumerID, Name: "rule", DestinationPath: "r.md",
+	}}
+	entries := map[uuid.UUID][]composer.Entry{
+		slotID: {
+			{ID: eLow, Mode: composer.ModeOverride, Priority: 0},
+			{ID: eFinal, Mode: composer.ModeOverride, Priority: 2, Final: true},
+		},
+	}
+
+	plan, _ := composer.Compose(consumerID, slots, entries)
+	if plan.Files[0].SourceEntries[0] != eFinal {
+		t.Error("final at highest priority should win")
+	}
+}
+
+func TestConcatPriorityOrderPreserved(t *testing.T) {
+	consumerID := uuid.New()
+	slotID := uuid.New()
+
+	e0 := uuid.New()
+	e1 := uuid.New()
+	e2 := uuid.New()
+
+	slots := []composer.Slot{{
+		ID: slotID, ConsumerID: consumerID, Name: "append", DestinationPath: "a.md",
+	}}
+	entries := map[uuid.UUID][]composer.Entry{
+		slotID: {
+			{ID: e0, Mode: composer.ModeConcatenation, Priority: 0},
+			{ID: e2, Mode: composer.ModeConcatenation, Priority: 2},
+			{ID: e1, Mode: composer.ModeConcatenation, Priority: 1},
+		},
+	}
+
+	plan, _ := composer.Compose(consumerID, slots, entries)
+	ids := plan.Files[0].SourceEntries
+	if len(ids) != 3 {
+		t.Fatalf("got %d source entries, want 3", len(ids))
+	}
+	if ids[0] != e0 || ids[1] != e1 || ids[2] != e2 {
+		t.Error("concat entries should be sorted by priority, not input order")
+	}
+}
+
+func TestConcatFinalFlagTruncation(t *testing.T) {
+	consumerID := uuid.New()
+	slotID := uuid.New()
+
+	e0 := uuid.New()
+	e1 := uuid.New()
+	e2 := uuid.New()
+
+	slots := []composer.Slot{{
+		ID: slotID, ConsumerID: consumerID, Name: "append", DestinationPath: "a.md",
+	}}
+	entries := map[uuid.UUID][]composer.Entry{
+		slotID: {
+			{ID: e2, Mode: composer.ModeConcatenation, Priority: 2},
+			{ID: e0, Mode: composer.ModeConcatenation, Priority: 0},
+			{ID: e1, Mode: composer.ModeConcatenation, Priority: 1, Final: true},
+		},
+	}
+
+	plan, _ := composer.Compose(consumerID, slots, entries)
+	ids := plan.Files[0].SourceEntries
+	if len(ids) != 2 {
+		t.Fatalf("got %d source entries, want 2 (final excludes higher)", len(ids))
+	}
+	if ids[0] != e0 || ids[1] != e1 {
+		t.Error("should have e0 and e1, excluding higher-priority e2")
 	}
 }

@@ -252,6 +252,43 @@ func testRegistry(t *testing.T, newReg func() (registry.Registry, func())) {
 			t.Errorf("got %v, want ErrNoDeployment", err)
 		}
 	})
+
+	t.Run("SlotPriorityOrdering", func(t *testing.T) {
+		reg, cleanup := newReg()
+		defer cleanup()
+
+		c := registry.Consumer{ID: uuid.New(), Alias: "c", Path: "/c"}
+		reg.RegisterConsumer(c)
+
+		s := registry.Source{ID: uuid.New(), Alias: "s", Path: "/s"}
+		reg.RegisterSource(s)
+
+		eLow := registry.Entry{ID: uuid.New(), SourceID: s.ID, Name: "rule", Type: registry.TypeRule, RelativePath: "r.md"}
+		eHigh := registry.Entry{ID: uuid.New(), SourceID: s.ID, Name: "rule", Type: registry.TypeRule, RelativePath: "r2.md"}
+		reg.RegisterEntry(eLow)
+		reg.RegisterEntry(eHigh)
+
+		slot := registry.Slot{ID: uuid.New(), ConsumerID: c.ID, Name: "rule", DestPath: "r.md"}
+		reg.RegisterSlot(slot)
+
+		// Link with explicit priorities (low then high)
+		reg.LinkEntrySlot(eLow.ID, slot.ID, 0)
+		reg.LinkEntrySlot(eHigh.ID, slot.ID, 2)
+
+		entries, err := reg.ResolveEntrySlots(slot.ID)
+		if err != nil {
+			t.Fatalf("ResolveEntrySlots: %v", err)
+		}
+		if len(entries) != 2 {
+			t.Fatalf("got %d entries, want 2", len(entries))
+		}
+		if entries[0].Priority != 0 || entries[0].ID != eLow.ID {
+			t.Error("first entry should be priority 0 (eLow)")
+		}
+		if entries[1].Priority != 2 || entries[1].ID != eHigh.ID {
+			t.Error("second entry should be priority 2 (eHigh)")
+		}
+	})
 }
 
 func TestMemRegistry(t *testing.T) {

@@ -43,6 +43,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(configCmd())
+	rootCmd.AddCommand(localCmd())
 
 
 	if err := rootCmd.Execute(); err != nil {
@@ -232,14 +233,15 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 			continue
 		}
 		var cEntries []composer.Entry
-		for _, e := range sEntries {
+		for _, se := range sEntries {
 			cEntries = append(cEntries, composer.Entry{
-				ID:       e.ID,
-				SourceID: e.SourceID,
-				Mode:     composer.ComposeMode(e.ComposeMode),
-				Final:    e.Final,
+				ID:       se.ID,
+				SourceID: se.SourceID,
+				Mode:     composer.ComposeMode(se.ComposeMode),
+				Final:    se.Final,
+				Priority: se.Priority,
 			})
-			entryLookup[e.ID] = e
+			entryLookup[se.ID] = se.Entry
 		}
 		entrySlots[s.ID] = cEntries
 	}

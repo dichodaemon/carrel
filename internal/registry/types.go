@@ -148,8 +148,15 @@ type SlotUpdates struct {
 	ComposeMode **ComposeMode // nil = no change; *nil = clear; set = override
 }
 
-// EntrySlot maps an entry to a slot (N:M).
+// EntrySlot maps an entry to a slot (N:M) with a priority.
 type EntrySlot struct {
-	EntryID uuid.UUID
-	SlotID  uuid.UUID
+	EntryID  uuid.UUID
+	SlotID   uuid.UUID
+	Priority int
+}
+
+// SlotEntry is an Entry annotated with its slot membership priority.
+type SlotEntry struct {
+	Entry
+	Priority int
 }

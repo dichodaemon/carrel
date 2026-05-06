@@ -132,21 +132,26 @@ func generateDefaultSlots(reg registry.Registry, c registry.Consumer) error {
 	isRepo := c.Kind == registry.ConsumerRepo
 	isContainer := c.Kind == registry.ConsumerContainer || c.Kind == registry.ConsumerHost
 
+	// Build source scope lookup
+	sources, _ := reg.ListSources()
+	sourceScope := make(map[uuid.UUID]registry.SourceScope)
+	for _, s := range sources {
+		sourceScope[s.ID] = s.Scope
+	}
+
+	var sourceIDs []uuid.UUID
+	for _, s := range sources {
+		sourceIDs = append(sourceIDs, s.ID)
+	}
+	entries, _ := reg.ResolveEntries(sourceIDs)
+
 	for typ, conv := range registry.Conventions {
 		if isRepo && isOSType(typ) {
-			continue // OS types not for repos
+			continue
 		}
 		if isContainer && !isOSType(typ) {
-			continue // OMP types not for containers
+			continue
 		}
-
-		// Find entries of this type
-		sources, _ := reg.ListSources()
-		var sourceIDs []uuid.UUID
-		for _, s := range sources {
-			sourceIDs = append(sourceIDs, s.ID)
-		}
-		entries, _ := reg.ResolveEntries(sourceIDs)
 
 		// Create one slot per unique entry name
 		seen := make(map[string]bool)
@@ -180,10 +185,11 @@ func generateDefaultSlots(reg registry.Registry, c registry.Consumer) error {
 			}
 			_ = reg.RegisterSlot(slot)
 
-			// Assign ALL entries with this name across all sources
+			// Assign ALL entries with this name across all sources, with scope-derived priority
 			for _, e2 := range entries {
 				if e2.Type == typ && e2.Name == e.Name {
-					_ = reg.LinkEntrySlot(e2.ID, slot.ID)
+					priority := registry.ScopePriority[sourceScope[e2.SourceID]]
+					_ = reg.LinkEntrySlot(e2.ID, slot.ID, priority)
 				}
 			}
 		}

@@ -369,10 +369,10 @@ func (r *DoltRegistry) ResolveSlots(consumerID uuid.UUID) ([]Slot, error) {
 }
 
 // LinkEntrySlot implements Registry.
-func (r *DoltRegistry) LinkEntrySlot(entryID, slotID uuid.UUID) error {
+func (r *DoltRegistry) LinkEntrySlot(entryID, slotID uuid.UUID, priority int) error {
 	_, err := r.db.Exec(
-		`INSERT INTO entry_slots (entry_id, slot_id) VALUES (?, ?)`,
-		entryID.String(), slotID.String(),
+		`INSERT INTO entry_slots (entry_id, slot_id, priority) VALUES (?, ?, ?)`,
+		entryID.String(), slotID.String(), priority,
 	)
 	return err
 }
@@ -394,18 +394,18 @@ func (r *DoltRegistry) UnlinkEntrySlot(entryID, slotID uuid.UUID) error {
 }
 
 // ResolveEntrySlots implements Registry.
-func (r *DoltRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]Entry, error) {
+func (r *DoltRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]SlotEntry, error) {
 	rows, err := r.db.Query(
-		`SELECT e.id, e.source_id, e.name, e.type, e.relative_path, e.content_hash, e.final, e.compose_mode, e.created_by
+		`SELECT e.id, e.source_id, e.name, e.type, e.relative_path, e.content_hash, e.final, e.compose_mode, e.created_by, es.priority
 		 FROM entries e JOIN entry_slots es ON e.id = es.entry_id
-		 WHERE es.slot_id = ? ORDER BY e.type, e.name`,
+		 WHERE es.slot_id = ? ORDER BY es.priority ASC, e.type, e.name`,
 		slotID.String(),
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanEntries(rows)
+	return scanSlotEntries(rows)
 }
 
 func scanConsumers(rows *sql.Rows) ([]Consumer, error) {
@@ -481,4 +481,23 @@ func scanSlots(rows *sql.Rows) ([]Slot, error) {
 	return out, rows.Err()
 }
 
+func scanSlotEntries(rows *sql.Rows) ([]SlotEntry, error) {
+	var out []SlotEntry
+	for rows.Next() {
+		var se SlotEntry
+		var idStr, srcIDStr string
+		var typ, createdBy int
+		var composeMode int
+		if err := rows.Scan(&idStr, &srcIDStr, &se.Name, &typ, &se.RelativePath, &se.ContentHash, &se.Final, &composeMode, &createdBy, &se.Priority); err != nil {
+			return nil, err
+		}
+		se.ID, _ = parseUUID(idStr)
+		se.SourceID, _ = parseUUID(srcIDStr)
+		se.Type = CapabilityType(typ)
+		se.ComposeMode = ComposeMode(composeMode)
+		se.CreatedBy = EntryOrigin(createdBy)
+		out = append(out, se)
+	}
+	return out, rows.Err()
+}
 func parseUUID(s string) (uuid.UUID, error) { return uuid.Parse(s) }

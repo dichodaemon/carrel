@@ -18,7 +18,7 @@ type MemRegistry struct {
 	depEntries  map[uuid.UUID][]DeploymentEntry
 	consumerSources map[uuid.UUID]map[uuid.UUID]bool // consumerID → set of sourceID
 	slots      map[uuid.UUID]Slot
-	entrySlots map[uuid.UUID]map[uuid.UUID]bool // slotID → set of entryID
+	entrySlots map[uuid.UUID]map[uuid.UUID]int // slotID → entryID → priority
 }
 
 func NewMemRegistry() *MemRegistry {
@@ -31,7 +31,7 @@ func NewMemRegistry() *MemRegistry {
 		depEntries:  make(map[uuid.UUID][]DeploymentEntry),
 		consumerSources: make(map[uuid.UUID]map[uuid.UUID]bool),
 		slots:           make(map[uuid.UUID]Slot),
-		entrySlots:      make(map[uuid.UUID]map[uuid.UUID]bool),
+		entrySlots:      make(map[uuid.UUID]map[uuid.UUID]int),
 	}
 }
 
@@ -264,36 +264,42 @@ func (m *MemRegistry) ResolveSlots(consumerID uuid.UUID) ([]Slot, error) {
 	return out, nil
 }
 
-func (m *MemRegistry) LinkEntrySlot(entryID, slotID uuid.UUID) error {
+func (m *MemRegistry) LinkEntrySlot(entryID, slotID uuid.UUID, priority int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.entrySlots[slotID] == nil {
-		m.entrySlots[slotID] = make(map[uuid.UUID]bool)
+		m.entrySlots[slotID] = make(map[uuid.UUID]int)
 	}
-	m.entrySlots[slotID][entryID] = true
+	m.entrySlots[slotID][entryID] = priority
 	return nil
 }
 
 func (m *MemRegistry) UnlinkEntrySlot(entryID, slotID uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.entrySlots[slotID] == nil || !m.entrySlots[slotID][entryID] {
+	if m.entrySlots[slotID] == nil {
+		return ErrNotFound
+	}
+	if _, ok := m.entrySlots[slotID][entryID]; !ok {
 		return ErrNotFound
 	}
 	delete(m.entrySlots[slotID], entryID)
 	return nil
 }
 
-func (m *MemRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]Entry, error) {
+func (m *MemRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]SlotEntry, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var out []Entry
-	for eID := range m.entrySlots[slotID] {
+	var out []SlotEntry
+	for eID, priority := range m.entrySlots[slotID] {
 		if e, ok := m.entries[eID]; ok {
-			out = append(out, e)
+			out = append(out, SlotEntry{Entry: e, Priority: priority})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].Priority != out[j].Priority {
+			return out[i].Priority < out[j].Priority
+		}
 		if out[i].Type != out[j].Type {
 			return out[i].Type < out[j].Type
 		}

@@ -116,3 +116,13 @@ func RelativePath(typ CapabilityType, name string) (string, error) {
 	}
 	return rel, nil
 }
+
+// ScopePriority maps source scopes to numeric priority for slot composition.
+// Higher values override lower values. Entries from higher-priority sources
+// win overrides and are appended last in concatenation.
+var ScopePriority = map[SourceScope]int{
+	ScopeUniversal:      0,
+	ScopeTargetSpecific: 1,
+	ScopeUserPersonal:   2,
+	ScopeHostLocal:      3,
+}

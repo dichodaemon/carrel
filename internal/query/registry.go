@@ -181,16 +181,16 @@ func (q *queryImpl) Plan(consumerAlias string) ([]PlanResult, error) {
 			continue
 		}
 		var cEntries []composer.Entry
-		for _, e := range entries {
+		for _, se := range entries {
 			cEntries = append(cEntries, composer.Entry{
-				ID:       e.ID,
-				SourceID: e.SourceID,
-				Mode:     composer.ComposeMode(e.ComposeMode),
-				Final:    e.Final,
+				ID:       se.ID,
+				SourceID: se.SourceID,
+				Mode:     composer.ComposeMode(se.ComposeMode),
+				Final:    se.Final,
+				Priority: se.Priority,
 			})
-			entryLookup[e.ID] = e
+			entryLookup[se.ID] = se.Entry
 		}
-		entrySlots[s.ID] = cEntries
 	}
 
 	// Resolve source paths for content resolution
@@ -450,7 +450,15 @@ func (q *queryImpl) ListSlots(consumerAlias string) ([]registry.Slot, error) {
 }
 
 func (q *queryImpl) ListSlotEntries(slotID uuid.UUID) ([]registry.Entry, error) {
-	return q.ResolveEntrySlots(slotID)
+	se, err := q.ResolveEntrySlots(slotID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]registry.Entry, len(se))
+	for i, s := range se {
+		out[i] = s.Entry
+	}
+	return out, nil
 }
 
 func typeName(typ registry.CapabilityType) string {

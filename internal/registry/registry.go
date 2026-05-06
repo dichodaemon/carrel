@@ -33,9 +33,9 @@ type Registry interface {
 	ResolveSlots(consumerID uuid.UUID) ([]Slot, error)
 
 	// Entry-slot operations
-	LinkEntrySlot(entryID, slotID uuid.UUID) error
+	LinkEntrySlot(entryID, slotID uuid.UUID, priority int) error
 	UnlinkEntrySlot(entryID, slotID uuid.UUID) error
-	ResolveEntrySlots(slotID uuid.UUID) ([]Entry, error)
+	ResolveEntrySlots(slotID uuid.UUID) ([]SlotEntry, error)
 
 	// Lifecycle
 	Close() error
