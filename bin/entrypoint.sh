@@ -5,6 +5,11 @@ set -e
 if [ -d /workspace/.carrel/local/omp ]; then
     ln -sfn /workspace/.carrel/local/omp /home/dev/.omp
 fi
+# Link user zshrc extension from carrel local config
+if [ -f /workspace/.carrel/local/zsh/zshrc.local ]; then
+    ln -sf /workspace/.carrel/local/zsh/zshrc.local /home/dev/.zshrc.local
+fi
+
 
 # Bootstrap registry if needed (must run before os-setup)
 carrel bootstrap 2>/dev/null || true
