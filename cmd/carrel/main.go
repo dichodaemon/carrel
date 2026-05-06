@@ -27,24 +27,22 @@ func main() {
 	}
 
 	rootCmd.AddGroup(&cobra.Group{ID: "lifecycle", Title: "Lifecycle Commands:"})
-	rootCmd.AddGroup(&cobra.Group{ID: "crud", Title: "Configuration CRUD:"})
 	rootCmd.AddGroup(&cobra.Group{ID: "query", Title: "Query Commands:"})
 
 	// Lifecycle commands
-	for _, f := range []func() *cobra.Command{bootstrapCmd, discoverCmd, scanCmd, runCmd, osSetupCmd, hostSetupCmd} {
+	for _, f := range []func() *cobra.Command{bootstrapCmd, discoverCmd, runCmd, osSetupCmd, hostSetupCmd} {
 		cmd := f()
 		cmd.GroupID = "lifecycle"
 		rootCmd.AddCommand(cmd)
 	}
-
 	// Query commands
-	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd, typesCmd, sourcesCmd, deployedCmd, planCmd, dependentsCmd, feedsCmd, inspectCmd, traceCmd} {
+	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd, sourcesCmd, deployedCmd, planCmd, dependentsCmd, feedsCmd, inspectCmd, traceCmd} {
 		cmd := f()
 		cmd.GroupID = "query"
 		rootCmd.AddCommand(cmd)
 	}
 
-	addCRUDCommands(rootCmd)
+	rootCmd.AddCommand(configCmd())
 
 
 	if err := rootCmd.Execute(); err != nil {

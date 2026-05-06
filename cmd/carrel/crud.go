@@ -29,13 +29,6 @@ var capabilityTypes = []struct {
 	{"append-system", registry.TypeAppendSystem},
 }
 
-func addCRUDCommands(root *cobra.Command) {
-	for _, f := range []func() *cobra.Command{crudAddCmd, crudListCmd, crudRmCmd, crudViewCmd, crudEditCmd, crudUpdateCmd, crudRenameCmd} {
-		cmd := f()
-		cmd.GroupID = "crud"
-		root.AddCommand(cmd)
-	}
-}
 
 func crudAddCmd() *cobra.Command {
 	var sourceAlias string
