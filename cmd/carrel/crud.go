@@ -48,20 +48,20 @@ The entry file is created at the conventional path for the given type within
 the source directory and registered in the carrel registry.
 
 Examples:
-  carrel add rule no-push-master --source=carrel-omp --content="Never push to master"
-  carrel add skill validate --source=carrel-omp --file=./validate.md
-  echo "content" | carrel add hook pre-commit --source=carrel-omp
+  carrel config add rule no-push-master --source=carrel-omp --content="Never push to master"
+  carrel config add skill validate --source=carrel-omp --file=./validate.md
+  echo "content" | carrel config add hook pre-commit --source=carrel-omp
 
-Available types — run 'carrel types' to see all types with descriptions.`,
+Available types — run 'carrel config types' to see all types with descriptions.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel add <type> <name>")
+				return fmt.Errorf("type and name required: carrel config add <type> <name>")
 			}
 			typeName := args[0]
 			name := args[1]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
 			}
 
 			var data []byte
@@ -99,18 +99,18 @@ func crudListCmd() *cobra.Command {
 Shows each entry's name, source alias, and relative path.
 
 Examples:
-  carrel list rule
-  carrel list skill
+  carrel config list rule
+  carrel config list skill
 
-Available types — run 'carrel types' to see all types with descriptions.`,
+Available types — run 'carrel config types' to see all types with descriptions.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return fmt.Errorf("type required: carrel list <type>")
+				return fmt.Errorf("type required: carrel config list <type>")
 			}
 			typeName := args[0]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
 			}
 
 			reg := mustOpenRegistry()
@@ -153,17 +153,17 @@ func crudRmCmd() *cobra.Command {
 		Long: `Remove a configuration entry from the registry and delete its file from disk.
 
 Examples:
-  carrel rm rule no-push-master
-  carrel rm skill validate`,
+  carrel config rm rule no-push-master
+  carrel config rm skill validate`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel rm <type> <name>")
+				return fmt.Errorf("type and name required: carrel config rm <type> <name>")
 			}
 			typeName := args[0]
 			name := args[1]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
 			}
 
 			reg := mustOpenRegistry()
@@ -186,18 +186,18 @@ By default both metadata and content are shown. Use --meta-only or
 --content-only to filter.
 
 Examples:
-  carrel view rule no-push-master
-  carrel view rule no-push-master --meta-only
-  carrel view skill validate --content-only`,
+  carrel config view rule no-push-master
+  carrel config view rule no-push-master --meta-only
+  carrel config view skill validate --content-only`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel view <type> <name>")
+				return fmt.Errorf("type and name required: carrel config view <type> <name>")
 			}
 			typeName := args[0]
 			name := args[1]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
 			}
 
 			reg := mustOpenRegistry()
@@ -251,17 +251,17 @@ func crudEditCmd() *cobra.Command {
 		Long: `Overwrite the content of a configuration entry's file and update the registry hash.
 
 Examples:
-  carrel edit rule no-push-master --content="Updated rule content"
-  carrel edit skill validate --file=./updated-validate.md`,
+  carrel config edit rule no-push-master --content="Updated rule content"
+  carrel config edit skill validate --file=./updated-validate.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel edit <type> <name>")
+				return fmt.Errorf("type and name required: carrel config edit <type> <name>")
 			}
 			typeName := args[0]
 			name := args[1]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
 			}
 
 			var data []byte
@@ -300,17 +300,17 @@ Currently supports setting the 'final' flag, which prevents deeper scopes
 from overriding the entry during composition.
 
 Examples:
-  carrel update rule no-push-master --final=true
-  carrel update skill validate --final=false`,
+  carrel config update rule no-push-master --final=true
+  carrel config update skill validate --final=false`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel update <type> <name>")
+				return fmt.Errorf("type and name required: carrel config update <type> <name>")
 			}
 			typeName := args[0]
 			name := args[1]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
 			}
 
 			reg := mustOpenRegistry()
@@ -347,18 +347,18 @@ func crudRenameCmd() *cobra.Command {
 The entry's UUID is preserved.
 
 Examples:
-  carrel rename rule old-name new-name
-  carrel rename skill old-validate new-validate`,
+  carrel config rename rule old-name new-name
+  carrel config rename skill old-validate new-validate`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 3 {
-				return fmt.Errorf("type, old name, and new name required: carrel rename <type> <old> <new>")
+				return fmt.Errorf("type, old name, and new name required: carrel config rename <type> <old> <new>")
 			}
 			typeName := args[0]
 			oldName := args[1]
 			newName := args[2]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
 			}
 
 			reg := mustOpenRegistry()

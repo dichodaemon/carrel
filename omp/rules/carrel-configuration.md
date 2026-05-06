@@ -14,7 +14,7 @@ Carrel is the configuration manager for the Scriptorium ecosystem. It assembles 
 - **On GitHub:** `dichodaemon/carrel`
 - **Registry:** `/workspace/.carrel/registry` (Dolt-backed)
 
-When a task requires modifying OMP configuration, use `carrel <type> add|rm|edit` commands — not direct file edits in deployed `.omp/` directories.
+When a task requires modifying OMP configuration, use `carrel config` subcommands — not direct file edits in deployed `.omp/` directories.
 
 ## Source hierarchy
 
@@ -29,7 +29,7 @@ Configuration comes from sources registered in the carrel registry. Sources are 
 
 Universal sources are inherited by all consumers. Deeper scopes override shallower scopes (unless an entry has the `final` flag).
 
-## Deployment (carrel run)
+## Deployment (`carrel run`)
 
 `carrel run` resolves the consumer from the current working directory, composes configuration from all applicable sources, deploys to the locations OMP discovers, then execs `omp`.
 
@@ -37,44 +37,174 @@ Universal sources are inherited by all consumers. Deeper scopes override shallow
 - `AGENTS.md` at the repo root is deployed by carrel for non-opt-in repos and listed in `.git/info/exclude`.
 - For opt-in repos (those with `.carrel/`), carrel deploys to `.omp/` only; `AGENTS.md` is user-managed.
 
+**Preview before deploying:**
+```bash
+carrel plan          # What would the next deployment produce?
+```
+
 ## Key rules
 
 - **Never edit `.omp/` directly.** It is deployed by `carrel run`. Changes are overwritten.
-- **Use carrel commands to manage configuration.** `carrel <type> add|rm|edit|list|view|update|rename`.
+- **Use `carrel config` commands to manage configuration.** All CRUD goes through `carrel config <subcommand> <type> <name>`.
 - **Source location determines scope:**
   - Universal: `/workspace/carrel/omp/<type>/` — inherited by all consumers.
   - Target-specific: `<target>/.carrel/<type>/` or `<target>-config/omp/<type>/` — only that consumer.
 - **Restart the OMP session** after modifying configuration (most config is loaded at init).
-- **Flag gaps, don't decide them.** When porting or replacing a system (e.g., carula → carrel), any feature present in the source system that is absent in the target is a gap. Surface it immediately. Do not defer, skip, or mark as "non-critical" without asking. The user decides what ships when.
+- **Flag gaps, don't decide them.** When porting or replacing a system, any feature present in the source system that is absent in the target is a gap. Surface it immediately. Do not defer, skip, or mark as "non-critical" without asking.
+- **Two ways to edit source files:**
+  - `carrel config edit <type> <name> --content="..."` — updates file + registry hash atomically.
+  - Edit source file directly, then `carrel config scan <source-alias>` — resyncs registry hashes.
+  - Both are valid. Use direct edit + scan when making complex multi-line changes.
 
 ## Beads task tracking
 
 - **Never close a bead unless the work is done.** Closing means the deliverable is verifiably complete, not deferred, not "follow-up," not "assumed done." A bead is a contract — close it when the tests pass and the code is committed.
-- **If work cannot be completed,** leave the bead open. Do not close with reasons like "tracked for follow-up" or "not blocking current milestone." Open beads are the system's source of truth for remaining work.
-- **Before closing, verify:** (1) the code compiles, (2) tests pass for affected packages, (3) git status shows the intended changes. If any of these is false, the bead is not done.
+- **If work cannot be completed,** leave the bead open. Do not close with reasons like "tracked for follow-up" or "not blocking current milestone."
+- **Before closing, verify:** (1) the code compiles, (2) tests pass for affected packages, (3) git status shows the intended changes.
 
-## Common operations
+## Available configuration types
 
-### Adding a rule, skill, or command
+| Type | Description |
+|---|---|
+| `rule` | Rules that govern agent behavior (conventions, constraints, prohibitions) |
+| `skill` | Agent skills for specialized workflows |
+| `command` | Slash-command definitions |
+| `extension` | OMP extensions |
+| `agent` | Agent personality and model configurations |
+| `tool` | External tool integrations |
+| `hook` | Lifecycle hooks (pre/post session operations) |
+| `prompt` | Reusable prompt templates |
+| `instruction` | Instructional content injected into sessions |
+| `context-file` | Project-level context files (AGENTS.md, CLAUDE.md) |
+| `append-system` | System prompt appendix content (concatenated across sources) |
+| `zsh` | Zsh configuration files |
+| `nvim` | Neovim configuration files |
+| `wezterm` | WezTerm configuration files |
+| `p10k` | Powerlevel10k configuration |
+
+List all types: `carrel config types`
+
+## Configuration CRUD
+
+All configuration management goes through `carrel config <subcommand>`.
+
+### Add an entry
 
 ```bash
-carrel rule add no-push-master --source=carrel-omp --content='...'
-carrel skill add grill-me --source=carrel-omp
-carrel rule list
-carrel rule view no-push-master
+carrel config add rule no-push-master --source=carrel-omp --content='Never push to master'
+carrel config add skill my-skill --source=carrel-omp --file=./SKILL.md
+echo "content" | carrel config add hook pre-commit --source=carrel-omp
 ```
 
-### Registering a new target repo
+Input via `--content`, `--file`, or stdin. Requires `--source`.
+
+### List entries of a type
+
+```bash
+carrel config list rule
+carrel config list skill
+```
+
+### View an entry
+
+```bash
+carrel config view rule no-push-master
+carrel config view rule no-push-master --meta-only
+carrel config view skill validate --content-only
+```
+
+### Edit an entry
+
+```bash
+carrel config edit rule no-push-master --content='Updated content'
+carrel config edit skill validate --file=./updated-validate.md
+```
+
+Alternatively, edit the source file directly then rescan:
+```bash
+carrel config scan carrel-omp
+```
+
+### Update metadata
+
+```bash
+carrel config update rule no-push-master --final=true
+```
+
+Currently supports the `--final` flag, which prevents deeper scopes from overriding.
+
+### Rename an entry
+
+```bash
+carrel config rename rule old-name new-name
+carrel config rename skill old-validate new-validate
+```
+
+### Remove an entry
+
+```bash
+carrel config rm rule no-push-master
+carrel config rm skill validate
+```
+
+Deletes the file from disk and removes the registry entry.
+
+## Querying state
+
+```bash
+carrel sources           # All registered entries with on-disk status (EXISTS / MISSING)
+carrel sources --type=rule --source=carrel-omp   # Filtered
+carrel deployed          # Deployed files with verification status
+carrel inspect carrel-omp:rule:carrel-configuration   # Inspect a source file
+carrel inspect <consumer>:<absolute-path>   # Inspect deployed file
+carrel trace carrel-omp:rule:carrel-configuration    # Trace composition provenance
+carrel feeds <consumer>           # Which sources feed a consumer
+carrel dependents carrel-omp   # Which consumers depend on a source
+carrel status            # Registry state (consumers + sources)
+carrel verify            # Check deployed state against registry claims
+carrel plan              # Preview next deployment output
+carrel discover          # Workspace repos and registration status
+```
+
+## Registering a new target repo
 
 1. `carrel discover` — lists unregistered repos.
 2. `carrel bootstrap` — initializes the registry if not done.
 3. For opt-in repos: add `.carrel/` with configuration. For opt-out repos: create a sibling `<target>-config/` repo.
 4. Run `carrel run` from the target repo to deploy and start an OMP session.
 
-### Querying state
+## OS tool configuration
+
+Carrel also manages OS-level configuration (zsh, nvim, wezterm, p10k). These types use the same `carrel config` CRUD commands:
 
 ```bash
-carrel status       # registered consumers and sources
-carrel verify       # deployed state vs. registry claims
-carrel discover     # workspace repos and registration status
+carrel config list zsh
+carrel config add zsh my-custom --source=carrel-omp --file=./custom.zsh
+```
+
+Deployed via:
+```bash
+carrel os-setup          # Deploy OS config in container
+carrel host-setup        # Deploy OS config on host
+```
+
+## Output slots
+
+Slots map configuration entries to deployment paths. Manage with `carrel slot`:
+
+```bash
+carrel slot list
+carrel slot add <name> --dest=<deploy-path>
+carrel slot add-entry <source-alias>:<type>:<name> <slot-name>
+carrel slot rm-entry <source-alias>:<type>:<name> <slot-name>
+```
+
+## Local overrides
+
+Per-user or per-host overrides layered on top of universal config:
+
+```bash
+carrel local init          # Initialize local config source
+carrel local scan          # Scan and link entries to slots
+carrel local path          # Print local source directory
 ```

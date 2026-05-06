@@ -211,6 +211,9 @@ COPY --chown=dev:dev omp/config/wezterm/mux-server.lua /home/dev/.config/wezterm
 RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /opt/powerlevel10k \
     && chown -R 1000:1000 /opt/powerlevel10k
 
+# Fix ownership of build-time artifacts in /home/dev
+RUN chown -R dev:dev /home/dev
+
 # Entrypoint
 COPY bin/entrypoint.sh /usr/local/bin/entrypoint.sh
 
