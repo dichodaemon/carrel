@@ -50,6 +50,15 @@ func runBootstrap(cmd *cobra.Command, args []string) error {
 		Kind:       registry.ConsumerContainer,
 	}
 	_ = reg.RegisterConsumer(containerConsumer)
+	hostConsumer := registry.Consumer{
+		ID:         uuid.New(),
+		Alias:      "host",
+		Path:       "/home/dev",
+		DeployRoot: "/home/dev",
+		Kind:       registry.ConsumerHost,
+	}
+	_ = reg.RegisterConsumer(hostConsumer)
+
 	carrelSource := registry.Source{
 		ID:    uuid.New(),
 		Alias: "carrel-omp",
@@ -108,7 +117,8 @@ func runBootstrap(cmd *cobra.Command, args []string) error {
 
 	// Generate default slots for each consumer
 	containerC, _ := reg.ResolveConsumer("container")
-	for _, c := range []registry.Consumer{carrelC, folioC, containerC} {
+	hostC, _ := reg.ResolveConsumer("host")
+	for _, c := range []registry.Consumer{carrelC, folioC, containerC, hostC} {
 		if err := generateDefaultSlots(reg, c); err != nil {
 			fmt.Printf("  bootstrap: slots for %s: %v\n", c.Alias, err)
 		}

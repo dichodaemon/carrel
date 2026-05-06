@@ -2,7 +2,7 @@ package registry
 
 import "fmt"
 
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 var Migrations = map[int][]string{
 	1: {
@@ -88,6 +88,11 @@ var Migrations = map[int][]string{
 		`ALTER TABLE consumers ADD COLUMN deploy_root TEXT`,
 		`ALTER TABLE entries ADD COLUMN compose_mode INT`,
 	},
+	4: {
+		`UPDATE schema_version SET version = 4`,
+		`ALTER TABLE consumers DROP INDEX path`,
+	},
+
 }
 
 func ApplyMigrations(r *DoltRegistry) error {

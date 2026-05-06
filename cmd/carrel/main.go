@@ -161,109 +161,10 @@ func runCmd() *cobra.Command {
 				return fmt.Errorf("unregistered repo %s; run 'carrel discover' to see available repos", gitRoot)
 			}
 
-			rSlots, err := reg.ResolveSlots(c.ID)
+			err = deployConsumer(reg, c, dryRun, onConflict)
 			if err != nil {
-				return fmt.Errorf("resolve slots: %w", err)
-			}
-
-			// Build composer slots and entry map
-			var cSlots []composer.Slot
-			entrySlots := make(map[uuid.UUID][]composer.Entry)
-			entryLookup := make(map[uuid.UUID]registry.Entry)
-			sourceByID := make(map[uuid.UUID]registry.Source)
-
-			for _, s := range rSlots {
-				dest := c.DeployRoot + "/" + s.DestPath
-				cSlots = append(cSlots, composer.Slot{
-					ID:              s.ID,
-					ConsumerID:      s.ConsumerID,
-					Name:            s.Name,
-					DestinationPath: dest,
-				})
-
-				sEntries, eErr := reg.ResolveEntrySlots(s.ID)
-				if eErr != nil {
-					continue
-				}
-				var cEntries []composer.Entry
-				for _, e := range sEntries {
-					cEntries = append(cEntries, composer.Entry{
-						ID:       e.ID,
-						SourceID: e.SourceID,
-						Mode:     composer.ComposeMode(e.ComposeMode),
-						Final:    e.Final,
-					})
-					entryLookup[e.ID] = e
-				}
-				entrySlots[s.ID] = cEntries
-			}
-
-			plan, err := composer.Compose(c.ID, cSlots, entrySlots)
-			if err != nil {
-				return fmt.Errorf("compose: %w", err)
-			}
-
-			// Resolve content for each output file
-			sources, _ := reg.ListSources()
-			for _, s := range sources {
-				sourceByID[s.ID] = s
-			}
-
-			// Resolve content for each output file
-			for i := range plan.Files {
-				resolveOutputContent(&plan.Files[i], entryLookup, sourceByID)
-			}
-
-			// Determine conflict policy
-			var policy deployer.ConflictPolicy
-			switch onConflict {
-			case "backup":
-				policy = deployer.ConflictBackup
-			case "skip":
-				policy = deployer.ConflictSkip
-			default:
-				policy = deployer.ConflictError
-			}
-
-			if dryRun {
-				collisions, _ := deployer.Deploy(plan, nil, policy, true)
-				fmt.Printf("dry-run: %d files would be deployed\n", len(plan.Files))
-				for _, col := range collisions {
-					fmt.Printf("  collision: %s (%v)\n", col.Path, col.Action)
-				}
-				return nil
-			}
-
-			_, prevEntries, _ := reg.LastDeployment(c.ID)
-
-			collisions, err := deployer.Deploy(plan, prevEntries, policy, false)
-			now := time.Now()
-			if err != nil {
-				reg.RecordDeployment(registry.Deployment{
-					ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
-				}, nil)
 				return err
 			}
-
-			// Record successful deployment
-			var depEntries []registry.DeploymentEntry
-			for _, f := range plan.Files {
-				for _, eID := range f.SourceEntries {
-					depEntries = append(depEntries, registry.DeploymentEntry{
-						DeploymentID: uuid.New(),
-						Path:         f.DestinationPath,
-						ContentHash:  f.ContentHash,
-						SourceEntry:  eID,
-					})
-				}
-			}
-			reg.RecordDeployment(registry.Deployment{
-				ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
-				SucceededAt: &now,
-			}, depEntries)
-
-			_ = collisions
-			fmt.Printf("deployment complete — %d files written\n", len(plan.Files))
 
 			// Ensure .git/info/exclude for non-opt-in repos
 			_ = deployer.EnsureGitExclude(gitRoot)
@@ -282,25 +183,155 @@ func runCmd() *cobra.Command {
 }
 
 func osSetupCmd() *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+	var onConflict string
+
+	cmd := &cobra.Command{
 		Use:   "os-setup",
 		Short: "Deploy OS tool configuration in container",
+		Long:  "Resolves the container consumer, composes OS configuration (zsh, nvim, wezterm), and deploys to OS paths under /home/dev.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("os-setup: deploying zsh, nvim, wezterm config")
-			return nil
+			reg := mustOpenRegistry()
+			defer reg.Close()
+
+			c, err := reg.ResolveConsumer("container")
+			if err != nil {
+				return fmt.Errorf("container consumer not found; run 'carrel bootstrap'")
+			}
+
+			return deployConsumer(reg, c, dryRun, onConflict)
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
+	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip")
+	return cmd
+}
+
+func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onConflict string) error {
+	rSlots, err := reg.ResolveSlots(c.ID)
+	if err != nil {
+		return fmt.Errorf("resolve slots: %w", err)
+	}
+
+	var cSlots []composer.Slot
+	entrySlots := make(map[uuid.UUID][]composer.Entry)
+	entryLookup := make(map[uuid.UUID]registry.Entry)
+	sourceByID := make(map[uuid.UUID]registry.Source)
+
+	for _, s := range rSlots {
+		dest := c.DeployRoot + "/" + s.DestPath
+		cSlots = append(cSlots, composer.Slot{
+			ID:              s.ID,
+			ConsumerID:      s.ConsumerID,
+			Name:            s.Name,
+			DestinationPath: dest,
+		})
+
+		sEntries, eErr := reg.ResolveEntrySlots(s.ID)
+		if eErr != nil {
+			continue
+		}
+		var cEntries []composer.Entry
+		for _, e := range sEntries {
+			cEntries = append(cEntries, composer.Entry{
+				ID:       e.ID,
+				SourceID: e.SourceID,
+				Mode:     composer.ComposeMode(e.ComposeMode),
+				Final:    e.Final,
+			})
+			entryLookup[e.ID] = e
+		}
+		entrySlots[s.ID] = cEntries
+	}
+
+	plan, err := composer.Compose(c.ID, cSlots, entrySlots)
+	if err != nil {
+		return fmt.Errorf("compose: %w", err)
+	}
+
+	sources, _ := reg.ListSources()
+	for _, s := range sources {
+		sourceByID[s.ID] = s
+	}
+
+	for i := range plan.Files {
+		resolveOutputContent(&plan.Files[i], entryLookup, sourceByID)
+	}
+
+	var policy deployer.ConflictPolicy
+	switch onConflict {
+	case "backup":
+		policy = deployer.ConflictBackup
+	case "skip":
+		policy = deployer.ConflictSkip
+	default:
+		policy = deployer.ConflictError
+	}
+
+	if dryRun {
+		collisions, _ := deployer.Deploy(plan, nil, policy, true)
+		fmt.Printf("dry-run: %d files would be deployed\n", len(plan.Files))
+		for _, col := range collisions {
+			fmt.Printf("  collision: %s (%v)\n", col.Path, col.Action)
+		}
+		return nil
+	}
+
+	_, prevEntries, _ := reg.LastDeployment(c.ID)
+	now := time.Now()
+
+	collisions, err := deployer.Deploy(plan, prevEntries, policy, false)
+	if err != nil {
+		reg.RecordDeployment(registry.Deployment{
+			ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
+		}, nil)
+		return err
+	}
+
+	var depEntries []registry.DeploymentEntry
+	for _, f := range plan.Files {
+		for _, eID := range f.SourceEntries {
+			depEntries = append(depEntries, registry.DeploymentEntry{
+				DeploymentID: uuid.New(),
+				Path:         f.DestinationPath,
+				ContentHash:  f.ContentHash,
+				SourceEntry:  eID,
+			})
+		}
+	}
+	reg.RecordDeployment(registry.Deployment{
+		ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
+		SucceededAt: &now,
+	}, depEntries)
+
+	_ = collisions
+	fmt.Printf("deployment complete — %d files written\n", len(plan.Files))
+	return nil
 }
 
 func hostSetupCmd() *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+	var onConflict string
+
+	cmd := &cobra.Command{
 		Use:   "host-setup",
 		Short: "Deploy OS tool configuration on host",
+		Long:  "Resolves the host consumer, composes OS configuration, and deploys to host OS paths.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("host-setup: deploying host tool config")
-			return nil
+			reg := mustOpenRegistry()
+			defer reg.Close()
+
+			c, err := reg.ResolveConsumer("host")
+			if err != nil {
+				return fmt.Errorf("host consumer not found; run 'carrel bootstrap'")
+			}
+
+			return deployConsumer(reg, c, dryRun, onConflict)
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
+	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "Conflict policy: error, backup, skip")
+	return cmd
 }
 
 func statusCmd() *cobra.Command {
