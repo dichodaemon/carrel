@@ -9,17 +9,17 @@
 # the user to bin/enter for an interactive build.
 set -euo pipefail
 
-CARULA_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CONTAINER=carula
+CARREL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CONTAINER=carrel
 
 is_running() {
     docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null | grep -q true
 }
 
 if ! is_running; then
-    echo "Carula is not running. Starting..." >&2
-    if ! docker compose -f "$CARULA_DIR/docker-compose.yml" up -d 2>&2; then
-        echo "Failed to start carula. Run 'bin/enter' on the host to build the image." >&2
+    echo "Carrel is not running. Starting..." >&2
+    if ! docker compose -f "$CARREL_DIR/docker-compose.yml" up -d 2>&2; then
+        echo "Failed to start carrel. Run 'bin/enter' on the host to build the image." >&2
         exit 1
     fi
     for i in $(seq 1 10); do
@@ -30,7 +30,7 @@ if ! is_running; then
         echo "Container failed to start. Run 'bin/enter' on the host to debug." >&2
         exit 1
     fi
-    echo "Carula started." >&2
+    echo "Carrel started." >&2
 fi
 
 exec docker exec -i "$CONTAINER" wezterm cli proxy
