@@ -191,6 +191,7 @@ func (q *queryImpl) Plan(consumerAlias string) ([]PlanResult, error) {
 			})
 			entryLookup[se.ID] = se.Entry
 		}
+		entrySlots[s.ID] = cEntries
 	}
 
 	// Resolve source paths for content resolution
