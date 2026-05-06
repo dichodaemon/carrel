@@ -45,7 +45,7 @@ Universal sources are inherited by all consumers. Deeper scopes override shallow
   - Universal: `/workspace/carrel/omp/<type>/` — inherited by all consumers.
   - Target-specific: `<target>/.carrel/<type>/` or `<target>-config/omp/<type>/` — only that consumer.
 - **Restart the OMP session** after modifying configuration (most config is loaded at init).
-
+- **Flag gaps, don't decide them.** When porting or replacing a system (e.g., carula → carrel), any feature present in the source system that is absent in the target is a gap. Surface it immediately. Do not defer, skip, or mark as "non-critical" without asking. The user decides what ships when.
 
 ## Beads task tracking
 
