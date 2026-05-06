@@ -2,4 +2,11 @@
 # launch — bring the carrel container up (non-interactive)
 set -e
 cd "$(dirname "$0")/.."
-docker compose up -d
+if docker compose version &>/dev/null; then
+	docker compose up -d
+elif command -v docker-compose &>/dev/null; then
+	docker-compose up -d
+else
+	echo "Error: neither docker compose nor docker-compose found" >&2
+	exit 1
+fi
