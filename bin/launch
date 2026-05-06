@@ -3,9 +3,9 @@
 set -e
 cd "$(dirname "$0")/.."
 if docker compose version &>/dev/null; then
-	docker compose up -d
+	docker compose up -d --build
 elif command -v docker-compose &>/dev/null; then
-	docker-compose up -d
+	docker-compose up -d --build
 else
 	echo "Error: neither docker compose nor docker-compose found" >&2
 	exit 1
