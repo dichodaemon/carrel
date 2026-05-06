@@ -8,3 +8,4 @@
 .bv/
 /carrel
 .omp/
+.env
