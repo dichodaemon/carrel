@@ -6,11 +6,11 @@ if [ -d /workspace/.carrel/local/omp ]; then
     ln -sfn /workspace/.carrel/local/omp /home/dev/.omp
 fi
 
-# Run carrel OS setup
-carrel os-setup
-
-# Bootstrap registry if needed
+# Bootstrap registry if needed (must run before os-setup)
 carrel bootstrap 2>/dev/null || true
+
+# Run carrel OS setup (compose + deploy OS config)
+carrel os-setup || true
 
 # Exec the main command
 exec "$@"
