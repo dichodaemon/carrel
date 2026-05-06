@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # proxy -- non-interactive entry point for wezterm's proxy_command.
 #
-# Ensures the carula container is running (start only, never build),
+# Ensures the carrel container is running (start only, never build),
 # then execs wezterm cli proxy. All status output goes to stderr to
 # keep stdout clean for the mux protocol.
 #
 # If the image doesn't exist, exits with an error message directing
-# the user to bin/enter for an interactive build.
+# the user to bin/launch for a build.
 set -euo pipefail
 
 CARREL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,7 +19,7 @@ is_running() {
 if ! is_running; then
     echo "Carrel is not running. Starting..." >&2
     if ! docker compose -f "$CARREL_DIR/docker-compose.yml" up -d 2>&2; then
-        echo "Failed to start carrel. Run 'bin/enter' on the host to build the image." >&2
+        echo "Failed to start carrel. Run 'bin/launch' on the host to build the image." >&2
         exit 1
     fi
     for i in $(seq 1 10); do
@@ -27,7 +27,7 @@ if ! is_running; then
         sleep 0.5
     done
     if ! is_running; then
-        echo "Container failed to start. Run 'bin/enter' on the host to debug." >&2
+        echo "Container failed to start. Run 'bin/launch' on the host to debug." >&2
         exit 1
     fi
     echo "Carrel started." >&2

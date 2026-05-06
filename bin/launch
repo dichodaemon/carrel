@@ -2,6 +2,17 @@
 # launch — bring the carrel container up (non-interactive)
 set -e
 cd "$(dirname "$0")/.."
+
+# Ensure ~/.gitconfig exists as a file (Docker creates missing bind-mount
+# sources as root-owned directories)
+if [[ -d "$HOME/.gitconfig" ]]; then
+    echo "Error: ~/.gitconfig is a directory. Fix: sudo rm -rf ~/.gitconfig" >&2
+    exit 1
+elif [[ ! -f "$HOME/.gitconfig" ]]; then
+    echo "Warning: ~/.gitconfig missing, creating minimal one." >&2
+    git config --global user.name "$(id -un)"
+fi
+
 if docker compose version &>/dev/null; then
 	docker compose up -d --build
 elif command -v docker-compose &>/dev/null; then

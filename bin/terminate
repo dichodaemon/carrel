@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# terminate -- stop and remove the carula containers.
+# terminate -- stop and remove the carrel containers.
 set -euo pipefail
 
-CARULA_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CARREL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-docker compose -f "$CARULA_DIR/docker-compose.yml" down
+docker compose -f "$CARREL_DIR/docker-compose.yml" down
