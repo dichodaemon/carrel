@@ -44,6 +44,7 @@ func main() {
 
 	rootCmd.AddCommand(configCmd())
 	rootCmd.AddCommand(localCmd())
+	rootCmd.AddCommand(slotCmd())
 
 
 	if err := rootCmd.Execute(); err != nil {

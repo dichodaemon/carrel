@@ -27,6 +27,10 @@ var capabilityTypes = []struct {
 	{"instruction", registry.TypeInstruction},
 	{"context-file", registry.TypeContextFile},
 	{"append-system", registry.TypeAppendSystem},
+	{"zsh", registry.TypeZshConfig},
+	{"nvim", registry.TypeNvimConfig},
+	{"wezterm", registry.TypeWeztermConfig},
+	{"p10k", registry.TypeP10kConfig},
 }
 
 

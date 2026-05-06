@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-# Link user config overrides from workspace mount
-if [ -d /workspace/config/local/zsh ]; then
-    ln -sf /workspace/config/local/zsh/zshrc.local /home/dev/.zshrc.local 2>/dev/null || true
+# Link OMP persistent state to workspace-mounted carrel data
+if [ -d /workspace/.carrel/local/omp ]; then
+    ln -sfn /workspace/.carrel/local/omp /home/dev/.omp
 fi
 
 # Run carrel OS setup

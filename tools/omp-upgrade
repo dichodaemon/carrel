@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# omp-upgrade -- Upgrade a source-installed oh-my-pi by rebasing
+#                the local carula branch onto origin/carula.
+#
+#   First-time setup:  omp-upgrade --init
+#   Normal upgrade:    omp-upgrade
+#   Dry run:           omp-upgrade --dry-run
+#
+set -euo pipefail
+
+OMP_REPO="${OMP_REPO:-/workspace/oh-my-pi}"
+CARULA_BRANCH="${OMP_CARULA_BRANCH:-carula}"
+REMOTE="origin"
+
+# ── defaults ────────────────────────────────────────────────────
+commit_wip=false
+dry_run=false
+skip_natives=false
+rebuild=false
+do_init=false
+# ── output ──────────────────────────────────────────────────────
+cyn=$'\033[0;36m' grn=$'\033[0;32m' ylw=$'\033[0;33m'
+red=$'\033[0;31m' dim=$'\033[2m'    rst=$'\033[0m'
+
+step() { printf '%s>>>%s %s\n' "$cyn" "$rst" "$*"; }
+ok()   { printf '%s>>>%s %s\n' "$grn" "$rst" "$*"; }
+warn() { printf '%s !! %s%s\n' "$ylw" "$rst" "$*" >&2; }
+err()  { printf '%s!!!%s %s\n' "$red" "$rst" "$*" >&2; }
+dim()  { printf '%s    %s%s\n' "$dim" "$*" "$rst"; }
+die()  { err "$@"; exit 1; }
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Upgrade a source-installed oh-my-pi by rebasing the local
+carula branch onto the latest origin/carula.
+
+Options:
+  --init              Create the '$CARULA_BRANCH' branch (first-time setup)
+  --dry-run           Show what would happen without acting
+  --commit-wip        Auto-commit dirty tree before rebasing
+  --skip-natives      Skip the Rust native binary rebuild
+  --rebuild           Force rebuild even when already up to date
+  -h, --help          Show this help
+
+Environment:
+  OMP_REPO           Path to oh-my-pi checkout (default: /workspace/oh-my-pi)
+  OMP_CARULA_BRANCH   Override carula branch name (default: carula)
+
+Examples:
+  $(basename "$0") --init                          # first time
+  $(basename "$0")                                 # upgrade to latest carula
+  $(basename "$0") --dry-run                       # preview
+  $(basename "$0") --skip-natives                  # skip native rebuild
+EOF
+}
+
+# ── arg parsing ─────────────────────────────────────────────────
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --init)          do_init=true ;;
+            --dry-run)       dry_run=true ;;
+            --no-commit-wip) commit_wip=false ;;
+            --commit-wip)    commit_wip=true ;;
+            --skip-natives)  skip_natives=true ;;
+            --rebuild)       rebuild=true ;;
+            -h|--help)       usage; exit 0 ;;
+            *)               die "Unknown option: $1" ;;
+        esac
+        shift
+    done
+}
+
+# ── helpers ─────────────────────────────────────────────────────
+
+# True when the working tree, index, and untracked files are all clean.
+is_clean() {
+    [ -z "$(git status --porcelain 2>/dev/null)" ]
+}
+
+
+# Run bun install + native rebuild (steps 9-10).
+do_build() {
+    local rollback="$1"
+    step "Installing JS dependencies"
+    if ! bun install; then
+        err "bun install failed."
+        err "Rollback: git reset --hard $rollback"
+        exit 2
+    fi
+
+    if [ "$skip_natives" = false ]; then
+        step "Rebuilding native binaries (Rust -- may take a few minutes)"
+        if ! bun --cwd=packages/natives run build; then
+            err "Native build failed."
+            err "Rollback:       git reset --hard $rollback"
+            err "Skip natives:   $(basename "$0") --skip-natives"
+            exit 2
+        fi
+    else
+        warn "Skipping native rebuild (--skip-natives)"
+    fi
+}
+
+
+# ── init ────────────────────────────────────────────────────────
+
+init() {
+    if git show-ref --verify --quiet "refs/heads/$CARULA_BRANCH"; then
+        die "Branch '$CARULA_BRANCH' already exists. Nothing to initialize."
+    fi
+
+    step "Fetching origin/$CARULA_BRANCH"
+    git fetch "$REMOTE" "$CARULA_BRANCH" --quiet \
+        || die "origin/$CARULA_BRANCH does not exist. Run carula-rebase first."
+
+    step "Creating branch '$CARULA_BRANCH' tracking origin/$CARULA_BRANCH"
+    git checkout -b "$CARULA_BRANCH" --track "$REMOTE/$CARULA_BRANCH"
+
+    echo ""
+    ok "Branch '$CARULA_BRANCH' is ready."
+    dim "Run '$(basename "$0")' to upgrade to the latest carula state."
+}
+
+# ── upgrade ─────────────────────────────────────────────────────
+
+upgrade() {
+    local current_branch
+    current_branch="$(git branch --show-current 2>/dev/null || true)"
+
+    # 1. Ensure we're on the carula branch.
+    if [ "$current_branch" != "$CARULA_BRANCH" ]; then
+        git show-ref --verify --quiet "refs/heads/$CARULA_BRANCH" \
+            || { err "Branch '$CARULA_BRANCH' does not exist. Run with --init first."; exit 3; }
+        is_clean \
+            || die "Tree is dirty and not on '$CARULA_BRANCH'. Commit or stash first."
+        step "Switching to '$CARULA_BRANCH'"
+        git checkout "$CARULA_BRANCH"
+    fi
+
+    # 2. Handle dirty working tree.
+    if ! is_clean; then
+        if [ "$commit_wip" = true ]; then
+            step "Auto-committing pending changes"
+            git add -A
+            git commit -m "[wip] pre-upgrade snapshot ($(date +%Y-%m-%d))"
+        else
+            die "Tree is dirty. Commit your changes or re-run with --commit-wip."
+        fi
+    fi
+
+    # 3. Record rollback point.
+    local rollback
+    rollback="$(git rev-parse HEAD)"
+
+    # 4. Fetch origin/carula.
+    step "Fetching $REMOTE/$CARULA_BRANCH"
+    git fetch "$REMOTE" "$CARULA_BRANCH" --quiet
+
+
+    # 5. Already up to date?
+    if git merge-base --is-ancestor "$REMOTE/$CARULA_BRANCH" HEAD; then
+        ok "Already at or ahead of origin/carula"
+        dim "origin/carula: $(git rev-parse --short $REMOTE/$CARULA_BRANCH)"
+        if [ "$rebuild" = true ]; then
+            if [ "$dry_run" = true ]; then
+                dim "[dry-run] Would run: bun install"
+                [ "$skip_natives" = false ] \
+                    && dim "[dry-run] Would run: bun --cwd=packages/natives run build"
+                return 0
+            fi
+            do_build "$rollback"
+        fi
+        return 0
+    fi
+    # 6. Compute local commit count from origin/carula.
+    local n_local
+    n_local="$(git rev-list --count "$REMOTE/$CARULA_BRANCH"..HEAD 2>/dev/null || echo 0)"
+
+    step "Upgrade: rebasing local $CARULA_BRANCH onto origin/$CARULA_BRANCH ($n_local local commit(s) to replay)"
+
+    # 7. Dry run.
+    if [ "$dry_run" = true ]; then
+        dim "[dry-run] Would rebase '$CARULA_BRANCH' onto $REMOTE/$CARULA_BRANCH"
+        dim "[dry-run] Would run: bun install"
+        [ "$skip_natives" = false ] \
+            && dim "[dry-run] Would run: bun --cwd=packages/natives run build"
+        if [ "$n_local" -gt 0 ]; then
+            dim "[dry-run] Local commits to replay:"
+            git log --oneline "$REMOTE/$CARULA_BRANCH..HEAD" | sed 's/^/            /'
+        fi
+        return 0
+    fi
+
+    # 8. Rebase.
+    step "Rebasing onto $REMOTE/$CARULA_BRANCH"
+    if ! git rebase "$REMOTE/$CARULA_BRANCH"; then
+        warn "Rebase hit conflicts -- aborting to preserve clean state."
+        git rebase --abort
+        err "Resolve manually:"
+        dim "  cd \$(git rev-parse --show-toplevel)"
+        dim "  git rebase $REMOTE/$CARULA_BRANCH"
+        dim "  # fix conflicts, then: git rebase --continue"
+        dim "  bun install"
+        [ "$skip_natives" = false ] \
+            && dim "  bun --cwd=packages/natives run build"
+        exit 1
+    fi
+
+    # 9. Build.
+    do_build "$rollback"
+
+    # 10. Summary.
+    local new_base
+    new_base="$(git rev-parse --short HEAD)"
+    local old_carula_sha
+    old_carula_sha="$(git rev-parse --short "$REMOTE/$CARULA_BRANCH")"
+
+    echo ""
+    ok "Upgrade complete: origin/carula $old_carula_sha -> $new_base"
+    dim "Rollback:  git reset --hard $rollback"
+    dim "Restart any running omp sessions to pick up changes."
+}
+
+# ── main ────────────────────────────────────────────────────────
+
+parse_args "$@"
+cd "$OMP_REPO" || { err "Cannot cd to $OMP_REPO (set OMP_REPO to override)"; exit 3; }
+[ -d .git ] || { err "Not a git repository: $OMP_REPO"; exit 3; }
+command -v git >/dev/null || die "git not found in PATH"
+command -v bun >/dev/null || die "bun not found in PATH"
+
+if [ "$do_init" = true ]; then
+    init
+else
+    upgrade
+fi

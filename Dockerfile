@@ -199,13 +199,13 @@ RUN userdel -r ubuntu 2>/dev/null || true \
     && mkdir -p /home/dev \
     && chown 1000:1000 /home/dev
 
-# OS tool configuration (image-baked defaults)
-COPY --chown=dev:dev omp/config/zsh/ /home/dev/.config/zsh/
-COPY --chown=dev:dev omp/config/nvim/ /home/dev/.config/nvim/
-COPY --chown=dev:dev omp/config/wezterm/ /home/dev/.config/wezterm/
+# OS tool configuration (image-baked defaults — carrel os-setup overwrites at runtime)
 COPY --chown=dev:dev omp/config/zsh/p10k.zsh /home/dev/.p10k.zsh
-COPY --chown=dev:dev omp/config/zsh/zshrc /home/dev/.zshrc
-COPY --chown=dev:dev omp/config/zsh/zprofile /home/dev/.zprofile
+COPY --chown=dev:dev omp/config/zsh/zshrc.zsh /home/dev/.zshrc
+COPY --chown=dev:dev omp/config/zsh/zprofile.zsh /home/dev/.zprofile
+COPY --chown=dev:dev omp/config/nvim/init.lua /home/dev/.config/nvim/init.lua
+COPY --chown=dev:dev omp/config/wezterm/wezterm.lua /home/dev/.config/wezterm/wezterm.lua
+COPY --chown=dev:dev omp/config/wezterm/mux-server.lua /home/dev/.config/wezterm/wezterm.lua
 
 # Install powerlevel10k
 RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /opt/powerlevel10k \

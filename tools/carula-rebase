@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# carula-rebase -- Rebase origin/carula onto upstream/main, tag
+#                 the result as carula-vYYYY-MM-DD, and force-push.
+#
+#   Normal run:  carula-rebase
+#   Dry run:     carula-rebase --dry-run
+#
+set -euo pipefail
+
+OMP_REPO="${OMP_REPO:-/workspace/oh-my-pi}"
+REMOTE="origin"
+UPSTREAM="${OMP_UPSTREAM:-upstream}"
+CARULA_BRANCH="carula"
+
+dry_run=false
+
+# ── output ──────────────────────────────────────────────────────
+cyn=$'\033[0;36m' grn=$'\033[0;32m' ylw=$'\033[0;33m'
+red=$'\033[0;31m' dim=$'\033[2m'    rst=$'\033[0m'
+
+step() { printf '%s>>>%s %s\n' "$cyn" "$rst" "$*"; }
+ok()   { printf '%s>>>%s %s\n' "$grn" "$rst" "$*"; }
+warn() { printf '%s !! %s%s\n' "$ylw" "$rst" "$*" >&2; }
+err()  { printf '%s!!!%s %s\n' "$red" "$rst" "$*" >&2; }
+dim()  { printf '%s    %s%s\n' "$dim" "$*" "$rst"; }
+die()  { err "$@"; exit 1; }
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Rebase origin/carula onto upstream/main, tag the result as
+carula-vYYYY-MM-DD, and force-push both.
+
+Options:
+  --dry-run    Show what would happen without pushing or tagging
+  -h, --help   Show this help
+
+Environment:
+  OMP_REPO       Path to oh-my-pi checkout (default: /workspace/oh-my-pi)
+  OMP_UPSTREAM   Override upstream remote name (default: upstream)
+
+Examples:
+  $(basename "$0")              # rebase, tag, push
+  $(basename "$0") --dry-run    # preview only
+EOF
+}
+
+# ── arg parsing ─────────────────────────────────────────────────
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --dry-run)  dry_run=true ;;
+            -h|--help)  usage; exit 0 ;;
+            *)          die "Unknown option: $1" ;;
+        esac
+        shift
+    done
+}
+
+# ── helpers ─────────────────────────────────────────────────────
+
+# True when the working tree, index, and untracked files are all clean.
+is_clean() {
+    [ -z "$(git status --porcelain 2>/dev/null)" ]
+}
+
+# ── main ────────────────────────────────────────────────────────
+
+parse_args "$@"
+
+cd "$OMP_REPO" || { err "Cannot cd to $OMP_REPO (set OMP_REPO to override)"; exit 3; }
+[ -d .git ] || { err "Not a git repository: $OMP_REPO"; exit 3; }
+
+# 1. Validate upstream remote.
+if ! git remote get-url "$UPSTREAM" >/dev/null 2>&1; then
+    err "Upstream remote '$UPSTREAM' is not configured."
+    err "Add it: git remote add $UPSTREAM <url>"
+    exit 3
+fi
+
+# 2. Validate origin/carula exists.
+if ! git fetch "$REMOTE" "$CARULA_BRANCH" --quiet 2>/dev/null; then
+    err "origin/$CARULA_BRANCH does not exist."
+    err "Run the initial migration to create it first."
+    exit 3
+fi
+if ! git rev-parse --verify "refs/remotes/$REMOTE/$CARULA_BRANCH" >/dev/null 2>&1; then
+    err "Cannot resolve origin/$CARULA_BRANCH."
+    exit 3
+fi
+
+# 3. Fetch upstream/main.
+step "Fetching $UPSTREAM/main"
+if ! git fetch "$UPSTREAM" main --quiet; then
+    err "Failed to fetch $UPSTREAM/main."
+    exit 3
+fi
+
+# 4. Record old base.
+old_base="$(git rev-parse --short "refs/remotes/$REMOTE/$CARULA_BRANCH")"
+upstream_tip="$(git rev-parse --short "refs/remotes/$UPSTREAM/main")"
+
+# 5. Create a local branch from origin/carula to work on.
+#    If it already exists, reset it to match origin/carula.
+if git show-ref --verify --quiet "refs/heads/$CARULA_BRANCH"; then
+    step "Resetting local $CARULA_BRANCH to origin/$CARULA_BRANCH"
+    git checkout "$CARULA_BRANCH" --quiet
+    git reset --hard "refs/remotes/$REMOTE/$CARULA_BRANCH" --quiet
+else
+    step "Checking out origin/$CARULA_BRANCH as $CARULA_BRANCH"
+    git checkout -b "$CARULA_BRANCH" --track "refs/remotes/$REMOTE/$CARULA_BRANCH" --quiet
+fi
+
+# 6. Already up to date?
+if git merge-base --is-ancestor "$UPSTREAM/main" HEAD; then
+    ok "Already up to date with upstream/main ($upstream_tip)"
+else
+    step "Rebasing $CARULA_BRANCH onto upstream/main ($upstream_tip)"
+
+    # 7. Rebase.
+    if ! git rebase "$UPSTREAM/main"; then
+        warn "Rebase hit conflicts -- aborting to preserve clean state."
+        git rebase --abort
+        err "Resolve manually:"
+        dim "  cd $(git rev-parse --show-toplevel)"
+        dim "  git checkout $CARULA_BRANCH"
+        dim "  git rebase $UPSTREAM/main"
+        dim "  # fix conflicts, then: git rebase --continue"
+        dim "  # then: $(basename "$0")"
+        exit 1
+    fi
+fi
+
+# 8. Dry run -- stop here.
+if [ "$dry_run" = true ]; then
+    dim "[dry-run] Would tag as carula-v$(date +%Y-%m-%d)"
+    dim "[dry-run] Would force-push origin/$CARULA_BRANCH and tag"
+    exit 0
+fi
+
+# 9. Tag.
+tag_name="carula-v$(date +%Y-%m-%d)"
+step "Tagging as '$tag_name'"
+git tag -f "$tag_name"
+
+# 10. Force-push branch and tag.
+new_base="$(git rev-parse --short HEAD)"
+
+step "Force-pushing $REMOTE/$CARULA_BRANCH ($new_base)"
+if ! git push --force "$REMOTE" "$CARULA_BRANCH:$CARULA_BRANCH"; then
+    err "Push of $REMOTE/$CARULA_BRANCH failed (network or permissions)."
+    exit 2
+fi
+
+step "Pushing tag '$tag_name'"
+if ! git push "$REMOTE" "$tag_name"; then
+    err "Push of tag '$tag_name' failed."
+    dim "The branch was pushed successfully. Push the tag manually:"
+    dim "  git push $REMOTE $tag_name"
+    exit 2
+fi
+
+echo ""
+ok "carula-rebase complete: upstream/main $upstream_tip -> origin/$CARULA_BRANCH $new_base (tagged $tag_name)"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# launch — bring the carrel container up (non-interactive)
+set -e
+cd "$(dirname "$0")/.."
+docker compose up -d

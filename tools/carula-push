@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# carula-push -- Push local carula commits to origin/carula
+#               with rebase-before-push.
+#
+#   Normal push:  carula-push
+#   Dry run:      carula-push --dry-run
+#
+set -euo pipefail
+
+OMP_REPO="${OMP_REPO:-/workspace/oh-my-pi}"
+CARULA_BRANCH="${OMP_CARULA_BRANCH:-carula}"
+REMOTE="origin"
+
+dry_run=false
+
+# ── output ──────────────────────────────────────────────────────
+cyn=$'\033[0;36m' grn=$'\033[0;32m' ylw=$'\033[0;33m'
+red=$'\033[0;31m' dim=$'\033[2m'    rst=$'\033[0m'
+
+step() { printf '%s>>>%s %s\n' "$cyn" "$rst" "$*"; }
+ok()   { printf '%s>>>%s %s\n' "$grn" "$rst" "$*"; }
+warn() { printf '%s !! %s%s\n' "$ylw" "$rst" "$*" >&2; }
+err()  { printf '%s!!!%s %s\n' "$red" "$rst" "$*" >&2; }
+dim()  { printf '%s    %s%s\n' "$dim" "$*" "$rst"; }
+die()  { err "$@"; exit 1; }
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Push local $CARULA_BRANCH commits to $REMOTE/$CARULA_BRANCH,
+rebasing onto the remote branch first to keep history linear.
+
+Options:
+  --dry-run    Show what would happen without pushing
+  -h, --help   Show this help
+
+Environment:
+  OMP_REPO            Path to oh-my-pi checkout (default: /workspace/oh-my-pi)
+  OMP_CARULA_BRANCH    Override carula branch name (default: carula)
+
+Examples:
+  $(basename "$0")              # rebase + push
+  $(basename "$0") --dry-run    # preview only
+EOF
+}
+
+# ── arg parsing ─────────────────────────────────────────────────
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --dry-run)  dry_run=true ;;
+            -h|--help)  usage; exit 0 ;;
+            *)          die "Unknown option: $1" ;;
+        esac
+        shift
+    done
+}
+
+# ── helpers ─────────────────────────────────────────────────────
+
+is_clean() {
+    [ -z "$(git status --porcelain 2>/dev/null)" ]
+}
+
+# ── main ────────────────────────────────────────────────────────
+
+parse_args "$@"
+
+cd "$OMP_REPO" || { err "Cannot cd to $OMP_REPO (set OMP_REPO to override)"; exit 3; }
+[ -d .git ] || { err "Not a git repository: $OMP_REPO"; exit 3; }
+
+current_branch="$(git branch --show-current 2>/dev/null || true)"
+
+# 1. Must be on the carula branch.
+if [ "$current_branch" != "$CARULA_BRANCH" ]; then
+    err "Not on '$CARULA_BRANCH' branch (current: ${current_branch:-detached HEAD})."
+    err "Switch to '$CARULA_BRANCH' first: git checkout $CARULA_BRANCH"
+    exit 3
+fi
+
+# 2. Tree must be clean.
+is_clean || die "Tree is dirty. Commit or stash changes first."
+
+# 3. Fetch latest origin/carula.
+step "Fetching $REMOTE/$CARULA_BRANCH"
+git fetch "$REMOTE" "$CARULA_BRANCH" --quiet
+
+# 4. Check if anything to push.
+old_remote_sha="$(git rev-parse --short "refs/remotes/$REMOTE/$CARULA_BRANCH")"
+head_sha="$(git rev-parse --short HEAD)"
+
+if [ "$(git rev-parse HEAD)" = "$(git rev-parse "refs/remotes/$REMOTE/$CARULA_BRANCH")" ]; then
+    ok "Nothing to push (HEAD == $REMOTE/$CARULA_BRANCH @ $head_sha)"
+    exit 0
+fi
+
+# 5. Count local commits ahead of remote.
+local_commits="$(git rev-list --count "refs/remotes/$REMOTE/$CARULA_BRANCH"..HEAD 2>/dev/null || echo 0)"
+
+# 6. Record rollback point.
+rollback="$(git rev-parse HEAD)"
+
+# 7. Dry run.
+if [ "$dry_run" = true ]; then
+    dim "[dry-run] Would rebase $local_commits local commit(s) onto $REMOTE/$CARULA_BRANCH ($old_remote_sha)"
+    dim "[dry-run] Local commits to replay:"
+    git log --oneline "refs/remotes/$REMOTE/$CARULA_BRANCH..HEAD" | sed 's/^/            /'
+    dim "[dry-run] Would run: git push --force-with-lease $REMOTE $CARULA_BRANCH:$CARULA_BRANCH"
+    exit 0
+fi
+
+# 8. Rebase onto origin/carula.
+step "Rebasing $local_commits local commit(s) onto $REMOTE/$CARULA_BRANCH ($old_remote_sha)"
+
+if ! git rebase "refs/remotes/$REMOTE/$CARULA_BRANCH"; then
+    warn "Rebase hit conflicts -- aborting to preserve clean state."
+    git rebase --abort
+    err "Resolve manually:"
+    dim "  cd $(git rev-parse --show-toplevel)"
+    dim "  git rebase $REMOTE/$CARULA_BRANCH"
+    dim "  # fix conflicts, then: git rebase --continue"
+    dim "  # then: $(basename "$0")"
+    exit 1
+fi
+
+# 9. Push with --force-with-lease.
+step "Pushing to $REMOTE/$CARULA_BRANCH"
+
+push_output="$(git push --force-with-lease "$REMOTE" "$CARULA_BRANCH:$CARULA_BRANCH" 2>&1)" && push_ok=true || push_ok=false
+
+if [ "$push_ok" != true ]; then
+    if echo "$push_output" | grep -qi "rejected\|stale info\|fetch first\|remote contains"; then
+        err "Push rejected -- $REMOTE/$CARULA_BRANCH was updated concurrently."
+        err "Re-fetch and re-rebase, then push again."
+        dim "  cd $(git rev-parse --show-toplevel)"
+        dim "  $(basename "$0")"
+        exit 2
+    fi
+    err "Push failed: $push_output"
+    exit 2
+fi
+
+new_sha="$(git rev-parse --short HEAD)"
+
+echo ""
+ok "Push complete: origin/$CARULA_BRANCH $old_remote_sha -> $new_sha"

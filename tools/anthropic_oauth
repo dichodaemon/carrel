@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""Authenticate with Anthropic (Claude) via OAuth over SSH.
+
+Uses PKCE authorization code flow with dual-mode callback (HTTP server +
+stdin paste). Stores the credential in Oh My Pi's agent.db so the coding
+agent can use it immediately.
+
+Usage:
+    python3 tools/anthropic_oauth.py          # authenticate
+    python3 tools/anthropic_oauth.py --check  # show current credential status
+    python3 tools/anthropic_oauth.py --clear  # remove stored credential
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import json
+import os
+import secrets
+import sqlite3
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlencode
+
+import requests
+
+# --- Anthropic OAuth constants (from Oh My Pi source) ----------------------
+
+CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+AUTHORIZE_URL = "https://claude.ai/oauth/authorize"
+TOKEN_URL = "https://api.anthropic.com/v1/oauth/token"
+CALLBACK_PORT = 54545
+CALLBACK_PATH = "/callback"
+SCOPES = "org:create_api_key user:profile user:inference"
+
+# Where Oh My Pi stores credentials.
+AGENT_DB_PATH = Path.home() / ".omp" / "agent" / "agent.db"
+
+# Margin before expiry (same as Oh My Pi: 5 minutes).
+EXPIRY_MARGIN_MS = 5 * 60 * 1000
+
+
+# --- PKCE ------------------------------------------------------------------
+
+def _generate_pkce() -> tuple[str, str]:
+    """Generate PKCE verifier and S256 challenge."""
+    verifier = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return verifier, challenge
+
+
+# --- agent.db operations ---------------------------------------------------
+
+def _get_db() -> sqlite3.Connection:
+    if not AGENT_DB_PATH.exists():
+        print(f"Error: {AGENT_DB_PATH} not found. Is Oh My Pi installed?", file=sys.stderr)
+        sys.exit(1)
+    return sqlite3.connect(str(AGENT_DB_PATH))
+
+
+def _read_credential() -> dict | None:
+    """Read the current Anthropic OAuth credential from agent.db."""
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT data, disabled_cause FROM auth_credentials "
+        "WHERE provider = 'anthropic' AND credential_type = 'oauth'",
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    data_json, disabled = row
+    try:
+        data = json.loads(data_json)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    data["_disabled"] = disabled
+    return data
+
+
+def _write_credential(access: str, refresh: str, expires: int) -> None:
+    """Upsert the Anthropic OAuth credential in agent.db."""
+    conn = _get_db()
+    data = json.dumps({"access": access, "refresh": refresh, "expires": expires})
+    now = int(time.time() * 1000)
+
+    # Check if row exists.
+    existing = conn.execute(
+        "SELECT id FROM auth_credentials "
+        "WHERE provider = 'anthropic' AND credential_type = 'oauth'",
+    ).fetchone()
+
+    if existing:
+        conn.execute(
+            "UPDATE auth_credentials SET data = ?, disabled_cause = NULL, updated_at = ? "
+            "WHERE provider = 'anthropic' AND credential_type = 'oauth'",
+            (data, now),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO auth_credentials (provider, credential_type, data, disabled_cause, updated_at, created_at) "
+            "VALUES ('anthropic', 'oauth', ?, NULL, ?, ?)",
+            (data, now, now),
+        )
+    conn.commit()
+    conn.close()
+
+
+def _clear_credential() -> bool:
+    """Delete the Anthropic OAuth credential from agent.db. Returns True if a row was deleted."""
+    conn = _get_db()
+    cursor = conn.execute(
+        "DELETE FROM auth_credentials "
+        "WHERE provider = 'anthropic' AND credential_type = 'oauth'",
+    )
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+
+# --- OAuth flow ------------------------------------------------------------
+
+def _build_auth_url(verifier: str, challenge: str, state: str) -> str:
+    redirect_uri = f"http://localhost:{CALLBACK_PORT}{CALLBACK_PATH}"
+    params = {
+        "code": "true",
+        "client_id": CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": redirect_uri,
+        "scope": SCOPES,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+        "state": state,
+    }
+    return f"{AUTHORIZE_URL}?{urlencode(params)}"
+
+
+def _exchange_code(code: str, state: str, verifier: str) -> dict:
+    """Exchange authorization code for tokens."""
+    redirect_uri = f"http://localhost:{CALLBACK_PORT}{CALLBACK_PATH}"
+
+    # Strip fragment from code if present (Anthropic sometimes appends state).
+    fragment_idx = code.find("#")
+    if fragment_idx >= 0:
+        code = code[:fragment_idx]
+
+    resp = requests.post(
+        TOKEN_URL,
+        json={
+            "grant_type": "authorization_code",
+            "client_id": CLIENT_ID,
+            "code": code,
+            "state": state,
+            "redirect_uri": redirect_uri,
+            "code_verifier": verifier,
+        },
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+    )
+    if not resp.ok:
+        raise RuntimeError(f"Token exchange failed ({resp.status_code}): {resp.text}")
+    return resp.json()
+
+
+def _do_auth() -> None:
+    """Run the full Anthropic OAuth flow."""
+    # Import callback module from the oauth_ssh library.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from lib.oauth_ssh.callback import wait_for_code
+
+    verifier, challenge = _generate_pkce()
+    state = secrets.token_hex(16)
+    auth_url = _build_auth_url(verifier, challenge, state)
+
+    print("\n[Anthropic OAuth] Visit this URL to authorize:", file=sys.stderr)
+    print(f"  {auth_url}\n", file=sys.stderr)
+
+    code, via_paste = wait_for_code(CALLBACK_PORT)
+    token_data = _exchange_code(code, state, verifier)
+
+    access = token_data["access_token"]
+    refresh = token_data.get("refresh_token", "")
+    expires_in = token_data.get("expires_in", 3600)
+    expires_ms = int(time.time() * 1000) + expires_in * 1000 - EXPIRY_MARGIN_MS
+
+    _write_credential(access, refresh, expires_ms)
+    print("\nAuthentication successful. Credential stored in Oh My Pi.", file=sys.stderr)
+
+    if via_paste:
+        print(
+            f"\nTip: to skip the paste step in the future, add this to ~/.ssh/config\n"
+            f"for your connection to this host:\n\n"
+            f"    RemoteForward {CALLBACK_PORT} localhost:{CALLBACK_PORT}\n",
+            file=sys.stderr,
+        )
+
+
+def _do_check() -> None:
+    """Show current credential status."""
+    cred = _read_credential()
+    if cred is None:
+        print("No Anthropic OAuth credential stored.")
+        return
+
+    disabled = cred.get("_disabled")
+    expires = cred.get("expires", 0)
+    now_ms = int(time.time() * 1000)
+    expired = now_ms >= expires
+
+    print(f"Provider:  anthropic")
+    print(f"Type:      oauth")
+    print(f"Disabled:  {disabled or 'no'}")
+    print(f"Expired:   {'yes' if expired else 'no'}")
+    if expires:
+        remaining_s = max(0, (expires - now_ms) // 1000)
+        hours, remainder = divmod(remaining_s, 3600)
+        minutes, secs = divmod(remainder, 60)
+        print(f"Remaining: {hours}h {minutes}m {secs}s")
+    print(f"Has refresh token: {'yes' if cred.get('refresh') else 'no'}")
+
+
+def _do_clear() -> None:
+    """Remove stored credential."""
+    if _clear_credential():
+        print("Anthropic OAuth credential removed.")
+    else:
+        print("No Anthropic OAuth credential found to remove.")
+
+
+# --- CLI -------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Authenticate with Anthropic (Claude) via OAuth over SSH.",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--check", action="store_true", help="Show current credential status")
+    group.add_argument("--clear", action="store_true", help="Remove stored credential")
+    args = parser.parse_args()
+
+    if args.check:
+        _do_check()
+    elif args.clear:
+        _do_clear()
+    else:
+        _do_auth()
+
+
+if __name__ == "__main__":
+    main()

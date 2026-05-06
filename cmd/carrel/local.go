@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -16,7 +15,7 @@ func localCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "local",
 		Short: "Manage local per-machine configuration overrides",
-		Long:  "Commands for managing a local configuration source (~/.carrel/local/) that provides per-user or per-host overrides layered on top of universal configuration.",
+		Long:  "Commands for managing a local configuration source (/workspace/.carrel/local/) that provides per-user or per-host overrides layered on top of universal configuration.",
 	}
 
 	cmd.AddCommand(localInitCmd())
@@ -26,19 +25,20 @@ func localCmd() *cobra.Command {
 	return cmd
 }
 
+// carrelLocalDir returns the local configuration directory.
+func carrelLocalDir() string {
+	return "/workspace/.carrel/local"
+}
+
 func localInitCmd() *cobra.Command {
 	var hostScope bool
 
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize the local configuration source",
-		Long:  "Creates ~/.carrel/local/ and registers it as a configuration source. Idempotent — skips if already registered.",
+		Long:  "Creates /workspace/.carrel/local/ and registers it as a configuration source. Idempotent — skips if already registered.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("home dir: %w", err)
-			}
-			localPath := filepath.Join(home, ".carrel", "local")
+		localPath := carrelLocalDir()
 
 			if err := os.MkdirAll(localPath, 0755); err != nil {
 				return fmt.Errorf("create %s: %w", localPath, err)
@@ -85,7 +85,7 @@ func localScanCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "scan",
 		Short: "Scan local source and link entries to existing slots",
-		Long:  "Scans the local configuration source (~/.carrel/local/) for convention-matching files, registers them as entries, and links them to existing slots with scope-derived priority.",
+		Long:  "Scans the local configuration source (/workspace/.carrel/local/) for convention-matching files, registers them as entries, and links them to existing slots with scope-derived priority.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reg := mustOpenRegistry()
 			defer reg.Close()
@@ -135,11 +135,7 @@ func localPathCmd() *cobra.Command {
 		Use:   "path",
 		Short: "Print the local source directory path",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("home dir: %w", err)
-			}
-			fmt.Println(filepath.Join(home, ".carrel", "local"))
+		fmt.Println(carrelLocalDir())
 			return nil
 		},
 	}

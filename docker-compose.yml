@@ -1,0 +1,34 @@
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONTAINERS: 1
+      EXEC: 1
+      POST: 1
+    networks:
+      - internal
+    restart: unless-stopped
+
+  carrel:
+    build: .
+    container_name: carrel
+    user: "${UID}:${GID}"
+    volumes:
+      - ${WORKSPACE}:/workspace
+      - ~/.ssh:/home/dev/.ssh:ro
+      - ~/.gitconfig:/home/dev/.gitconfig:ro
+      - ~/.config/gh:/home/dev/.config/gh
+      - ~/.config/doc-fetch:/home/dev/.config/doc-fetch:ro
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      HOME: /home/dev
+    networks:
+      - internal
+    restart: unless-stopped
+    command: ["sleep", "infinity"]
+
+networks:
+  internal:
+    driver: bridge
