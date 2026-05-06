@@ -2,9 +2,8 @@
 set -e
 
 # Link OMP persistent state to workspace-mounted carrel data
-if [ -d /workspace/.carrel/local/omp ]; then
-    ln -sfn /workspace/.carrel/local/omp /home/dev/.omp
-fi
+mkdir -p /workspace/.carrel/local/omp
+ln -sfn /workspace/.carrel/local/omp /home/dev/.omp
 # Link user zshrc extension from carrel local config
 if [ -f /workspace/.carrel/local/zsh/zshrc.local ]; then
     ln -sf /workspace/.carrel/local/zsh/zshrc.local /home/dev/.zshrc.local
