@@ -386,15 +386,19 @@ func (q *queryImpl) TraceDeployed(consumerAlias string, path string) ([]TraceRes
 		return nil, err
 	}
 
-	var sourceEntryID uuid.UUID
+	var sourceEntryIDs []uuid.UUID
 	for _, de := range depEntries {
 		if de.Path == path {
-			sourceEntryID = de.SourceEntry
-			break
+			sourceEntryIDs = append(sourceEntryIDs, de.SourceEntry)
 		}
 	}
-	if sourceEntryID == uuid.Nil {
+	if len(sourceEntryIDs) == 0 {
 		return nil, fmt.Errorf("deployed file %s:%s not found", consumerAlias, path)
+	}
+
+	sourceEntrySet := make(map[uuid.UUID]bool, len(sourceEntryIDs))
+	for _, id := range sourceEntryIDs {
+		sourceEntrySet[id] = true
 	}
 
 	// Resolve source entry details
@@ -412,7 +416,7 @@ func (q *queryImpl) TraceDeployed(consumerAlias string, path string) ([]TraceRes
 
 	var results []TraceResult
 	for _, e := range entries {
-		if e.ID == sourceEntryID {
+		if sourceEntrySet[e.ID] {
 			src := sourceMap[e.SourceID]
 			results = append(results, TraceResult{
 				SourceAlias: src.Alias,
