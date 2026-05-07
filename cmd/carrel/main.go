@@ -228,7 +228,7 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 	sourceByID := make(map[uuid.UUID]registry.Source)
 
 	for _, s := range rSlots {
-		dest := c.DeployRoot + "/" + s.DestPath
+		dest := filepath.Clean(c.DeployRoot + "/" + s.DestPath)
 		cSlots = append(cSlots, composer.Slot{
 			ID:              s.ID,
 			ConsumerID:      s.ConsumerID,
