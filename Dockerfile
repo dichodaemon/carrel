@@ -186,11 +186,9 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash -s "bun-v${B
 ARG OMP_VERSION=14.2.1
 RUN BUN_INSTALL=/usr/local bun install -g @oh-my-pi/pi-coding-agent@${OMP_VERSION}
 
-# Build carrel
+# Carrel build environment (binary built at container startup via entrypoint)
 ENV CGO_ENABLED=1 \
     GOPATH=/home/dev/go
-COPY . /workspace/carrel
-RUN cd /workspace/carrel && go build -o /usr/local/bin/carrel ./cmd/carrel
 
 # User setup
 RUN userdel -r ubuntu 2>/dev/null || true \

@@ -28,7 +28,7 @@ HISTFILE=~/.zsh_history
 # ---------------------------------------------------------------------------
 # Environment
 # ---------------------------------------------------------------------------
-export PATH="$HOME/.local/bin:/workspace/carrel/tools:/usr/local/bin:$PATH"
+export PATH="$HOME/.local/bin:/workspace/carrel/bin:/workspace/carrel/tools:/usr/local/bin:$PATH"
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
 export PI_NO_APPEARANCE_POLL=1

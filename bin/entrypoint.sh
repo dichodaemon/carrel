@@ -10,6 +10,11 @@ if [ -f /workspace/.carrel/local/zsh/zshrc.local ]; then
 fi
 
 
+# Build carrel from workspace source (user-writable, always matches source)
+mkdir -p /workspace/carrel/bin
+go build -o /workspace/carrel/bin/carrel /workspace/carrel/cmd/carrel
+export PATH="/workspace/carrel/bin:$PATH"
+
 # Bootstrap registry if needed (must run before os-setup)
 carrel bootstrap 2>/dev/null || true
 
