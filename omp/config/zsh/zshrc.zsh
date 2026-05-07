@@ -2,14 +2,6 @@
 # Sourced inside the container. User extensions go in ~/.zshrc.local
 # (e.g., mount from host or create inside the container).
 
-
-# Workaround for zsh-syntax-highlighting character duplication in wezterm.
-# The plugin interacts poorly with wezterm's custom terminfo entry;
-# falling back to xterm-256color eliminates duplicate keystrokes on
-# first interaction. See wezterm/wezterm#3609.
-if [[ $TERM == "wezterm" ]]; then
-  TERM="xterm-256color"
-fi
 # Powerlevel10k instant prompt (must stay near the top)
 # ---------------------------------------------------------------------------
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
@@ -39,6 +31,8 @@ HISTFILE=~/.zsh_history
 export PATH="$HOME/.local/bin:/workspace/carrel/tools:/usr/local/bin:$PATH"
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
+export PI_NO_APPEARANCE_POLL=1
+export TERM=xterm-256color
 # bun
 if [[ -d "$HOME/.bun" ]]; then
   export BUN_INSTALL="$HOME/.bun"
@@ -53,11 +47,6 @@ if [[ -d "$HOME/.nvm" ]]; then
   export NVM_DIR="$HOME/.nvm"
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 fi
-
-# ---------------------------------------------------------------------------
-# Aliases
-# ---------------------------------------------------------------------------
-alias omp='PI_NO_APPEARANCE_POLL=1 TERM=xterm-256color omp'
 
 # ---------------------------------------------------------------------------
 # Prompt customization (p10k)

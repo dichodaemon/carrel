@@ -174,6 +174,52 @@ func testRegistry(t *testing.T, newReg func() (registry.Registry, func())) {
 		}
 	})
 
+	t.Run("RegisterEntryUpsert", func(t *testing.T) {
+		reg, cleanup := newReg()
+		defer cleanup()
+
+		s := registry.Source{ID: uuid.New(), Alias: "s", Path: "/s"}
+		reg.RegisterSource(s)
+
+		id := uuid.New()
+		e := registry.Entry{
+			ID:           id,
+			SourceID:     s.ID,
+			Name:         "old-name",
+			Type:         registry.TypeRule,
+			RelativePath: "rules/old-name.md",
+			ContentHash:  100,
+		}
+		if err := reg.RegisterEntry(e); err != nil {
+			t.Fatalf("RegisterEntry (insert): %v", err)
+		}
+
+		// Re-register same ID with changed name, path, and hash.
+		e.Name = "new-name"
+		e.RelativePath = "rules/new-name.md"
+		e.ContentHash = 999
+		if err := reg.RegisterEntry(e); err != nil {
+			t.Fatalf("RegisterEntry (upsert): %v", err)
+		}
+
+		entries, err := reg.ResolveEntries([]uuid.UUID{s.ID})
+		if err != nil {
+			t.Fatalf("ResolveEntries: %v", err)
+		}
+		if len(entries) != 1 {
+			t.Fatalf("got %d entries, want 1", len(entries))
+		}
+		if entries[0].Name != "new-name" {
+			t.Errorf("Name = %q, want new-name", entries[0].Name)
+		}
+		if entries[0].RelativePath != "rules/new-name.md" {
+			t.Errorf("RelativePath = %q, want rules/new-name.md", entries[0].RelativePath)
+		}
+		if entries[0].ContentHash != 999 {
+			t.Errorf("ContentHash = %d, want 999", entries[0].ContentHash)
+		}
+	})
+
 	t.Run("RemoveEntry", func(t *testing.T) {
 		reg, cleanup := newReg()
 		defer cleanup()

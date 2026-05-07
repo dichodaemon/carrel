@@ -152,6 +152,10 @@ func typeNameStr(typ registry.CapabilityType) string {
 		registry.TypeInstruction:   "instruction",
 		registry.TypeContextFile:   "context-file",
 		registry.TypeAppendSystem:  "append-system",
+		registry.TypeZshConfig:     "zsh",
+		registry.TypeNvimConfig:    "nvim",
+		registry.TypeWeztermConfig: "wezterm",
+		registry.TypeP10kConfig:    "p10k",
 	}
 	if n, ok := names[typ]; ok {
 		return n

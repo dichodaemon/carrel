@@ -137,7 +137,15 @@ func (r *DoltRegistry) ListSources() ([]Source, error) {
 func (r *DoltRegistry) RegisterEntry(e Entry) error {
 	_, err := r.db.Exec(
 		`INSERT INTO entries (id, source_id, name, type, relative_path, content_hash, final, compose_mode, created_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE
+		   name = VALUES(name),
+		   type = VALUES(type),
+		   relative_path = VALUES(relative_path),
+		   content_hash = VALUES(content_hash),
+		   final = VALUES(final),
+		   compose_mode = VALUES(compose_mode),
+		   created_by = VALUES(created_by)`,
 		e.ID.String(), e.SourceID.String(), e.Name, int(e.Type),
 		e.RelativePath, e.ContentHash, e.Final, int(e.ComposeMode), int(e.CreatedBy),
 	)
