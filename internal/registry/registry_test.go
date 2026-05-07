@@ -89,6 +89,34 @@ func testRegistry(t *testing.T, newReg func() (registry.Registry, func())) {
 		}
 	})
 
+	t.Run("RegisterConsumerUpsert", func(t *testing.T) {
+		reg, cleanup := newReg()
+		defer cleanup()
+
+		id := uuid.New()
+		c := registry.Consumer{ID: id, Alias: "repo", Path: "/old", DeployRoot: "/old/.omp", Kind: registry.ConsumerRepo}
+		if err := reg.RegisterConsumer(c); err != nil {
+			t.Fatalf("RegisterConsumer (insert): %v", err)
+		}
+
+		c.Path = "/new"
+		c.DeployRoot = "/new/.omp"
+		if err := reg.RegisterConsumer(c); err != nil {
+			t.Fatalf("RegisterConsumer (upsert): %v", err)
+		}
+
+		got, err := reg.ResolveConsumer("repo")
+		if err != nil {
+			t.Fatalf("ResolveConsumer: %v", err)
+		}
+		if got.Path != "/new" {
+			t.Errorf("Path = %q, want /new", got.Path)
+		}
+		if got.DeployRoot != "/new/.omp" {
+			t.Errorf("DeployRoot = %q, want /new/.omp", got.DeployRoot)
+		}
+	})
+
 	t.Run("RegisterAndResolveSources", func(t *testing.T) {
 		reg, cleanup := newReg()
 		defer cleanup()
@@ -116,6 +144,34 @@ func testRegistry(t *testing.T, newReg func() (registry.Registry, func())) {
 		}
 	})
 
+	t.Run("RegisterSourceUpsert", func(t *testing.T) {
+		reg, cleanup := newReg()
+		defer cleanup()
+
+		id := uuid.New()
+		s := registry.Source{ID: id, Alias: "src", Path: "/old", Scope: registry.ScopeUniversal, Kind: registry.SourceGitBacked}
+		if err := reg.RegisterSource(s); err != nil {
+			t.Fatalf("RegisterSource (insert): %v", err)
+		}
+
+		s.Path = "/new"
+		s.Scope = registry.ScopeTargetSpecific
+		if err := reg.RegisterSource(s); err != nil {
+			t.Fatalf("RegisterSource (upsert): %v", err)
+		}
+
+		sources, _ := reg.ListSources()
+		if len(sources) != 1 {
+			t.Fatalf("got %d sources, want 1", len(sources))
+		}
+		if sources[0].Path != "/new" {
+			t.Errorf("Path = %q, want /new", sources[0].Path)
+		}
+		if sources[0].Scope != registry.ScopeTargetSpecific {
+			t.Errorf("Scope = %d, want ScopeTargetSpecific", sources[0].Scope)
+		}
+	})
+
 	t.Run("UniversalAndTargetSpecificOrdering", func(t *testing.T) {
 		reg, cleanup := newReg()
 		defer cleanup()
@@ -140,6 +196,23 @@ func testRegistry(t *testing.T, newReg func() (registry.Registry, func())) {
 		}
 		if sources[0].Scope != registry.ScopeUniversal {
 			t.Error("universal source not first")
+		}
+	})
+
+	t.Run("LinkConsumerSourceIdempotent", func(t *testing.T) {
+		reg, cleanup := newReg()
+		defer cleanup()
+
+		c := registry.Consumer{ID: uuid.New(), Alias: "c", Path: "/c"}
+		reg.RegisterConsumer(c)
+		s := registry.Source{ID: uuid.New(), Alias: "s", Path: "/s", Scope: registry.ScopeTargetSpecific}
+		reg.RegisterSource(s)
+
+		if err := reg.LinkConsumerSource(c.ID, s.ID); err != nil {
+			t.Fatalf("LinkConsumerSource (first): %v", err)
+		}
+		if err := reg.LinkConsumerSource(c.ID, s.ID); err != nil {
+			t.Fatalf("LinkConsumerSource (second): %v", err)
 		}
 	})
 

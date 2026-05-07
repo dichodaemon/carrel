@@ -54,7 +54,12 @@ func (r *DoltRegistry) Close() error { return r.db.Close() }
 // RegisterConsumer implements Registry.
 func (r *DoltRegistry) RegisterConsumer(c Consumer) error {
 	_, err := r.db.Exec(
-		`INSERT INTO consumers (id, alias, path, deploy_root, kind) VALUES (?, ?, ?, ?, ?)`,
+		`INSERT INTO consumers (id, alias, path, deploy_root, kind) VALUES (?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE
+		   alias = VALUES(alias),
+		   path = VALUES(path),
+		   deploy_root = VALUES(deploy_root),
+		   kind = VALUES(kind)`,
 		c.ID.String(), c.Alias, c.Path, c.DeployRoot, int(c.Kind),
 	)
 	return err
@@ -93,7 +98,12 @@ func (r *DoltRegistry) ListConsumers() ([]Consumer, error) {
 // RegisterSource implements Registry.
 func (r *DoltRegistry) RegisterSource(s Source) error {
 	_, err := r.db.Exec(
-		`INSERT INTO sources (id, alias, path, scope, kind) VALUES (?, ?, ?, ?, ?)`,
+		`INSERT INTO sources (id, alias, path, scope, kind) VALUES (?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE
+		   alias = VALUES(alias),
+		   path = VALUES(path),
+		   scope = VALUES(scope),
+		   kind = VALUES(kind)`,
 		s.ID.String(), s.Alias, s.Path, int(s.Scope), int(s.Kind),
 	)
 	return err
@@ -102,7 +112,7 @@ func (r *DoltRegistry) RegisterSource(s Source) error {
 // LinkConsumerSource implements Registry.
 func (r *DoltRegistry) LinkConsumerSource(consumerID, sourceID uuid.UUID) error {
 	_, err := r.db.Exec(
-		`INSERT INTO consumer_sources (consumer_id, source_id) VALUES (?, ?)`,
+		`INSERT IGNORE INTO consumer_sources (consumer_id, source_id) VALUES (?, ?)`,
 		consumerID.String(), sourceID.String(),
 	)
 	return err

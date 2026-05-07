@@ -45,6 +45,7 @@ func main() {
 	rootCmd.AddCommand(configCmd())
 	rootCmd.AddCommand(localCmd())
 	rootCmd.AddCommand(slotCmd())
+	rootCmd.AddCommand(registerCmd())
 
 
 	if err := rootCmd.Execute(); err != nil {
@@ -160,7 +161,7 @@ func runCmd() *cobra.Command {
 
 			c, err := reg.ResolveConsumer(gitRoot)
 			if err != nil {
-				return fmt.Errorf("unregistered repo %s; run 'carrel discover' to see available repos", gitRoot)
+				return fmt.Errorf("unregistered repo %s\n\nTo register, run:\n  carrel register consumer <alias> --path=%s\n  carrel register source <alias> --path=<source-dir> --scope=target --consumer=<alias>", gitRoot, gitRoot)
 			}
 
 			err = deployConsumer(reg, c, dryRun, onConflict)
@@ -170,6 +171,11 @@ func runCmd() *cobra.Command {
 
 			// Ensure .git/info/exclude for non-opt-in repos
 			_ = deployer.EnsureGitExclude(gitRoot)
+
+			// Release the registry lock before exec replaces the process.
+			// defer reg.Close() is dead code after syscall.Exec succeeds —
+			// the lock fd would be inherited by OMP, blocking all registry writes.
+			reg.Close()
 
 			// Exec omp
 			ompBin, err := exec.LookPath("omp")

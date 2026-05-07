@@ -38,7 +38,7 @@ func NewMemRegistry() *MemRegistry {
 func (m *MemRegistry) RegisterConsumer(c Consumer) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, ok := m.aliases[c.Alias]; ok {
+	if existingID, ok := m.aliases[c.Alias]; ok && existingID != c.ID {
 		return ErrDuplicate
 	}
 	m.consumers[c.ID] = c
@@ -76,7 +76,7 @@ func (m *MemRegistry) ListConsumers() ([]Consumer, error) {
 func (m *MemRegistry) RegisterSource(s Source) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, ok := m.aliases[s.Alias]; ok {
+	if existingID, ok := m.aliases[s.Alias]; ok && existingID != s.ID {
 		return ErrDuplicate
 	}
 	m.sources[s.ID] = s

@@ -56,12 +56,6 @@ carrel plan          # What would the next deployment produce?
   - Edit source file directly, then `carrel config scan <source-alias>` — resyncs registry hashes.
   - Both are valid. Use direct edit + scan when making complex multi-line changes.
 
-## Beads task tracking
-
-- **Never close a bead unless the work is done.** Closing means the deliverable is verifiably complete, not deferred, not "follow-up," not "assumed done." A bead is a contract — close it when the tests pass and the code is committed.
-- **If work cannot be completed,** leave the bead open. Do not close with reasons like "tracked for follow-up" or "not blocking current milestone."
-- **Before closing, verify:** (1) the code compiles, (2) tests pass for affected packages, (3) git status shows the intended changes.
-
 ## Available configuration types
 
 | Type | Description |
