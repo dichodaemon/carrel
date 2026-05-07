@@ -261,9 +261,13 @@ func EnsureGitExclude(repoPath string, deployRoot string, deployedPaths []string
 		}
 	}
 
+	existingLines := make(map[string]bool)
+	for _, line := range strings.Split(existingStr, "\n") {
+		existingLines[strings.TrimSpace(line)] = true
+	}
 	var toAdd []string
 	for _, p := range patterns {
-		if !strings.Contains(existingStr, p) {
+		if !existingLines[p] {
 			toAdd = append(toAdd, p)
 		}
 	}
@@ -277,6 +281,11 @@ func EnsureGitExclude(repoPath string, deployRoot string, deployedPaths []string
 		return err
 	}
 	defer f.Close()
+
+	// Ensure existing content ends with a newline so we don't glue onto the last line
+	if len(existing) > 0 && existing[len(existing)-1] != '\n' {
+		fmt.Fprintln(f)
+	}
 
 	for _, p := range toAdd {
 		if _, err := fmt.Fprintf(f, "%s\n", p); err != nil {
