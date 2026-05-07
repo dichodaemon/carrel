@@ -103,7 +103,12 @@ func (q *queryImpl) ListDeployed(opts DeployQueryOpts) ([]DeployResult, error) {
 			return nil, err
 		}
 
+		seen := make(map[string]bool)
 		for _, e := range entries {
+			if seen[e.Path] {
+				continue
+			}
+			seen[e.Path] = true
 			var claimHash, actualHash int64
 			var status DeployStatus
 
