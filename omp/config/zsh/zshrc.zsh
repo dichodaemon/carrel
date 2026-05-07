@@ -58,6 +58,6 @@ fi
 source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # ---------------------------------------------------------------------------
-# User extensions (not tracked by carula)
+# User extensions (not tracked by carrel)
 # ---------------------------------------------------------------------------
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local

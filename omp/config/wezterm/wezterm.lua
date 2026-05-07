@@ -302,8 +302,8 @@ local config = {
 
   unix_domains = {
     {
-      name = 'carula',
-      proxy_command = { 'ssh', '-T', '<user>@<host-address>', '/home/<user>/code/carula/bin/proxy' },
+      name = 'carrel',
+      proxy_command = { 'ssh', '-T', '<user>@<host-address>', '/home/<user>/code/carrel/bin/proxy' },
     },
   },
 }
@@ -313,9 +313,9 @@ local config = {
 -- Place overrides in config/local/wezterm/overrides.lua (gitignored).
 -- The file should return a table; its keys are shallow-merged into config.
 -------------------------------------------------------------------------------
-local overrides_path = os.getenv('HOME') .. '/.config/carula/overrides.lua'
+local overrides_path = os.getenv('HOME') .. '/.config/carrel/overrides.lua'
 -- Also check the sibling local/ tree relative to this config file's directory.
--- Inside the container config_dir is /workspace/carula/config/wezterm; on a
+-- Inside the container config_dir is /workspace/carrel/config/wezterm; on a
 -- laptop it is wherever the symlink lives (e.g. ~/.config/wezterm).
 local sibling_overrides = wez.config_dir .. '/../local/wezterm/overrides.lua'
 
