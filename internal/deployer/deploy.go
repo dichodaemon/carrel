@@ -223,9 +223,11 @@ func cleanupStale(
 	return collisions
 }
 
-// EnsureGitExclude adds .omp/ and AGENTS.md to .git/info/exclude
-// if the repo doesn't have a .carrel/ opt-in marker.
-func EnsureGitExclude(repoPath string) error {
+// EnsureGitExclude adds .omp/ and any deployed paths outside it to
+// .git/info/exclude for non-opt-in repos. deployedPaths are absolute
+// destination paths from the deployment plan; deployRoot is the consumer's
+// deploy root (e.g., /workspace/core-stack/.omp).
+func EnsureGitExclude(repoPath string, deployRoot string, deployedPaths []string) error {
 	// Only add exclude for repos without .carrel opt-in
 	if _, err := os.Stat(filepath.Join(repoPath, ".carrel")); err == nil {
 		return nil // opt-in repo, skip
@@ -242,8 +244,23 @@ func EnsureGitExclude(repoPath string) error {
 	existing, _ := os.ReadFile(excludePath)
 	existingStr := string(existing)
 
-	// Patterns to add
+	// Base patterns: the deploy root directory itself
 	patterns := []string{".omp/", "AGENTS.md"}
+
+	// Add any deployed path that lands outside the deploy root
+	cleanRoot := filepath.Clean(deployRoot)
+	for _, p := range deployedPaths {
+		cleanP := filepath.Clean(p)
+		if !strings.HasPrefix(cleanP, cleanRoot+"/") && cleanP != cleanRoot {
+			// Path is outside deploy root — make it relative to the repo
+			rel, err := filepath.Rel(repoPath, cleanP)
+			if err != nil {
+				continue
+			}
+			patterns = append(patterns, rel)
+		}
+	}
+
 	var toAdd []string
 	for _, p := range patterns {
 		if !strings.Contains(existingStr, p) {

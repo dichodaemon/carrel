@@ -164,13 +164,13 @@ func runCmd() *cobra.Command {
 				return fmt.Errorf("unregistered repo %s\n\nTo register, run:\n  carrel register consumer <alias> --path=%s\n  carrel register source <alias> --path=<source-dir> --scope=target --consumer=<alias>", gitRoot, gitRoot)
 			}
 
-			err = deployConsumer(reg, c, dryRun, onConflict)
+			deployedPaths, err := deployConsumer(reg, c, dryRun, onConflict)
 			if err != nil {
 				return err
 			}
 
 			// Ensure .git/info/exclude for non-opt-in repos
-			_ = deployer.EnsureGitExclude(gitRoot)
+			_ = deployer.EnsureGitExclude(gitRoot, c.DeployRoot, deployedPaths)
 
 			// Release the registry lock before exec replaces the process.
 			// defer reg.Close() is dead code after syscall.Exec succeeds —
@@ -207,7 +207,8 @@ func osSetupCmd() *cobra.Command {
 				return fmt.Errorf("container consumer not found; run 'carrel bootstrap'")
 			}
 
-			return deployConsumer(reg, c, dryRun, onConflict)
+			_, err = deployConsumer(reg, c, dryRun, onConflict)
+			return err
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
@@ -215,10 +216,10 @@ func osSetupCmd() *cobra.Command {
 	return cmd
 }
 
-func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onConflict string) error {
+func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onConflict string) ([]string, error) {
 	rSlots, err := reg.ResolveSlots(c.ID)
 	if err != nil {
-		return fmt.Errorf("resolve slots: %w", err)
+		return nil, fmt.Errorf("resolve slots: %w", err)
 	}
 
 	var cSlots []composer.Slot
@@ -255,7 +256,7 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 
 	plan, err := composer.Compose(c.ID, cSlots, entrySlots)
 	if err != nil {
-		return fmt.Errorf("compose: %w", err)
+		return nil, fmt.Errorf("compose: %w", err)
 	}
 
 	sources, _ := reg.ListSources()
@@ -279,13 +280,19 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 		policy = deployer.ConflictError
 	}
 
+
+	// Collect deployed paths for git exclude
+	var deployedPaths []string
+	for _, f := range plan.Files {
+		deployedPaths = append(deployedPaths, f.DestinationPath)
+	}
 	if dryRun {
 		collisions, _ := deployer.Deploy(plan, nil, policy, true)
 		fmt.Printf("dry-run: %d files would be deployed\n", len(plan.Files))
 		for _, col := range collisions {
 			fmt.Printf("  collision: %s (%v)\n", col.Path, col.Action)
 		}
-		return nil
+		return deployedPaths, nil
 	}
 
 	_, prevEntries, _ := reg.LastDeployment(c.ID)
@@ -296,7 +303,7 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 		reg.RecordDeployment(registry.Deployment{
 			ID: uuid.New(), ConsumerID: c.ID, AttemptedAt: now,
 		}, nil)
-		return err
+		return nil, err
 	}
 
 	var depEntries []registry.DeploymentEntry
@@ -317,7 +324,7 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 
 	_ = collisions
 	fmt.Printf("deployment complete — %d files written\n", len(plan.Files))
-	return nil
+	return deployedPaths, nil
 }
 
 func hostSetupCmd() *cobra.Command {
@@ -337,7 +344,8 @@ func hostSetupCmd() *cobra.Command {
 				return fmt.Errorf("host consumer not found; run 'carrel bootstrap'")
 			}
 
-			return deployConsumer(reg, c, dryRun, onConflict)
+			_, err = deployConsumer(reg, c, dryRun, onConflict)
+			return err
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deployed without writing")
