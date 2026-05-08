@@ -25,6 +25,10 @@ contributions:
     entries:
       - rule:no-push-oh-my-pi
 
+  - slot: no-todo-write
+    entries:
+      - rule:no-todo-write
+
   - slot: rebase-pr-chain
     entries:
       - skill:rebase-pr-chain
