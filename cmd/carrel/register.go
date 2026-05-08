@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -76,6 +77,17 @@ Examples:
 			}
 			if err := reg.RegisterConsumer(c); err != nil {
 				return fmt.Errorf("register consumer: %w", err)
+			}
+
+			// Apply .carrel/slots.yml if present
+			slotsPath := filepath.Join(path, ".carrel", "slots.yml")
+			warnings, err := registry.ApplySlotsFile(reg, c, slotsPath)
+			if err != nil {
+				// File read error (not missing) — warn but don't fail
+				fmt.Printf("  warning: slots.yml read error: %v\n", err)
+			}
+			for _, w := range warnings {
+				fmt.Printf("  warning: slots.yml: %s\n", w)
 			}
 
 			fmt.Printf("registered consumer: %s (%s)\n", alias, path)
@@ -175,11 +187,20 @@ Examples:
 					}
 				}
 
-				// Generate default slots.
-				if err := generateDefaultSlots(reg, c); err != nil {
-					fmt.Printf("  warning: slot generation: %v\n", err)
+				// Apply .carrel/slots.yml if present, otherwise generate defaults
+				slotsPath := filepath.Join(c.Path, ".carrel", "slots.yml")
+				warnings, err := registry.ApplySlotsFile(reg, c, slotsPath)
+				if err != nil {
+					fmt.Printf("  warning: slots.yml read error: %v\n", err)
+					if err := generateDefaultSlots(reg, c); err != nil {
+						fmt.Printf("  warning: slot generation: %v\n", err)
+					}
+				} else {
+					for _, w := range warnings {
+						fmt.Printf("  warning: slots.yml: %s\n", w)
+					}
+					fmt.Printf("applied slots.yml for %s\n", consumerAlias)
 				}
-				fmt.Printf("generated default slots for %s\n", consumerAlias)
 			}
 
 			return nil

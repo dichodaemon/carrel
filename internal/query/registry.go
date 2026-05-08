@@ -260,6 +260,79 @@ func (q *queryImpl) Plan(consumerAlias string) ([]PlanResult, error) {
 	return results, nil
 }
 
+
+// Preview runs the compose pipeline and returns the resolved content for a
+// single deployment file, without writing to disk.
+func (q *queryImpl) Preview(consumerAlias string, deployPath string) (*PreviewFile, error) {
+	c, err := q.ResolveConsumer(consumerAlias)
+	if err != nil {
+		return nil, fmt.Errorf("consumer %q: %w", consumerAlias, err)
+	}
+
+	rSlots, err := q.ResolveSlots(c.ID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve slots: %w", err)
+	}
+
+	var cSlots []composer.Slot
+	entrySlots := make(map[uuid.UUID][]composer.Entry)
+	entryLookup := make(map[uuid.UUID]registry.Entry)
+	sourcePaths := make(map[uuid.UUID]string)
+
+	for _, s := range rSlots {
+		cSlots = append(cSlots, composer.Slot{
+			ID:              s.ID,
+			ConsumerID:      s.ConsumerID,
+			Name:            s.Name,
+			DestinationPath: c.DeployRoot + "/" + s.DestPath,
+		})
+
+		sEntries, eErr := q.ResolveEntrySlots(s.ID)
+		if eErr != nil {
+			continue
+		}
+		var cEntries []composer.Entry
+		for _, se := range sEntries {
+			cEntries = append(cEntries, composer.Entry{
+				ID:       se.ID,
+				SourceID: se.SourceID,
+				Mode:     composer.ComposeMode(se.ComposeMode),
+				Final:    se.Final,
+				Priority: se.Priority,
+			})
+			entryLookup[se.ID] = se.Entry
+		}
+		entrySlots[s.ID] = cEntries
+	}
+
+	sources, _ := q.ListSources()
+	for _, s := range sources {
+		sourcePaths[s.ID] = s.Path
+	}
+
+	plan, err := composer.Compose(c.ID, cSlots, entrySlots)
+	if err != nil {
+		return nil, fmt.Errorf("compose: %w", err)
+	}
+
+	for i := range plan.Files {
+		resolvePlanContent(&plan.Files[i], entryLookup, sourcePaths)
+	}
+
+	// Find the file matching the requested path.
+	cleanPath := filepath.Clean(deployPath)
+	for _, f := range plan.Files {
+		if filepath.Clean(f.DestinationPath) == cleanPath {
+			return &PreviewFile{
+				Path:    f.DestinationPath,
+				Content: f.Content,
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("path %q not found in deployment plan for consumer %q", deployPath, consumerAlias)
+}
+
 func (q *queryImpl) ListDependents(sourceAlias string) ([]ConsumerResult, error) {
 	src, err := q.ResolveConsumer(sourceAlias)
 	if err == nil {

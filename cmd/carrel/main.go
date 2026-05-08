@@ -36,7 +36,7 @@ func main() {
 		rootCmd.AddCommand(cmd)
 	}
 	// Query commands
-	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd, sourcesCmd, deployedCmd, planCmd, dependentsCmd, feedsCmd, inspectCmd, traceCmd} {
+	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd, sourcesCmd, deployedCmd, planCmd, previewCmd, dependentsCmd, feedsCmd, inspectCmd, traceCmd} {
 		cmd := f()
 		cmd.GroupID = "query"
 		rootCmd.AddCommand(cmd)
@@ -164,6 +164,11 @@ func runCmd() *cobra.Command {
 				return fmt.Errorf("unregistered repo %s\n\nTo register, run:\n  carrel register consumer <alias> --path=%s\n  carrel register source <alias> --path=<source-dir> --scope=target --consumer=<alias>", gitRoot, gitRoot)
 			}
 
+
+			// Check slots.yml consistency
+			for _, w := range checkSlotsConsistency(reg, c.Alias) {
+				fmt.Fprintf(os.Stderr, "warning: slots.yml: %s\n", w)
+			}
 			deployedPaths, err := deployConsumer(reg, c, dryRun, onConflict)
 			if err != nil {
 				return err

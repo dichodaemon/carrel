@@ -131,3 +131,9 @@ type TraceResult struct {
 	SourceName    string              `json:"sourceName,omitempty"`
 	SourcePath    string              `json:"sourcePath,omitempty"`
 }
+
+// PreviewFile represents a file that would be deployed, with its resolved content.
+type PreviewFile struct {
+	Path    string `json:"path"`
+	Content []byte `json:"content"`
+}

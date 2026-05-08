@@ -19,4 +19,5 @@ type QueryRegistry interface {
 	Plan(consumerAlias string) ([]PlanResult, error)
 	ListSlots(consumerAlias string) ([]registry.Slot, error)
 	ListSlotEntries(slotID uuid.UUID) ([]registry.Entry, error)
+	Preview(consumerAlias string, deployPath string) (*PreviewFile, error)
 }

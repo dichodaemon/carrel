@@ -1,0 +1,34 @@
+slots:
+    - name: APPEND_SYSTEM.md
+      dest: APPEND_SYSTEM.md
+      compose: concat
+      entries:
+        - ref: carrel-omp:append-system:APPEND_SYSTEM.md
+        - ref: carrel-omp:append-system:beads-policy.md
+        - ref: carrel-omp:append-system:carrel-policy.md
+        - ref: carrel-omp:append-system:folio-policy.md
+    - name: carrel-configuration
+      dest: rules/carrel-configuration.md
+      compose: override
+      entries:
+        - ref: carrel-omp:rule:carrel-configuration
+    - name: grill-me
+      dest: skills/grill-me/SKILL.md
+      compose: override
+      entries:
+        - ref: carrel-omp:skill:grill-me
+    - name: no-push-oh-my-pi
+      dest: rules/no-push-oh-my-pi.md
+      compose: override
+      entries:
+        - ref: carrel-omp:rule:no-push-oh-my-pi
+    - name: rebase-pr-chain
+      dest: skills/rebase-pr-chain/SKILL.md
+      compose: override
+      entries:
+        - ref: carrel-omp:skill:rebase-pr-chain
+    - name: rebase-pr-tree
+      dest: skills/rebase-pr-tree/SKILL.md
+      compose: override
+      entries:
+        - ref: carrel-omp:skill:rebase-pr-tree

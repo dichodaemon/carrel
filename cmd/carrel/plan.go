@@ -53,6 +53,11 @@ Examples:
 				return err
 			}
 
+			// Check slots.yml consistency
+			for _, w := range checkSlotsConsistency(reg, consumerAlias) {
+				fmt.Fprintf(os.Stderr, "warning: slots.yml: %s\n", w)
+			}
+
 			if jsonOut {
 				enc := json.NewEncoder(os.Stdout)
 				enc.SetIndent("", "  ")
