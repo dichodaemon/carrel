@@ -139,7 +139,6 @@ func TestCRUDAddAndList(t *testing.T) {
 	exec.Command(carrelBin, "bootstrap").Run()
 	rulePath := filepath.Join("/workspace/carrel/omp", "rules", "test-rule.md")
 	os.Remove(rulePath) // clean up from previous runs
-	t.Skip("skipping: Dolt registry is read-only when carrel session is active")
 
 
 	cmd := exec.Command(carrelBin, "config", "add", "rule", "test-rule",
@@ -171,7 +170,6 @@ func TestCRUDRemove(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 	os.Remove(filepath.Join("/workspace/carrel/omp", "rules", "remove-me.md")) // clean up from previous runs
-	t.Skip("skipping: Dolt registry is read-only when carrel session is active")
 
 	exec.Command(carrelBin, "config", "add", "rule", "remove-me",
 		"--source=carrel-omp", "--content=test").Run()
@@ -345,24 +343,49 @@ func TestRunOnConflictError(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	// Create a foreign file at the deployment destination
-	os.MkdirAll("/workspace/carrel/.omp/rules", 0755)
-	os.WriteFile("/workspace/carrel/.omp/rules/foreign.md", []byte("foreign"), 0644)
-	defer os.RemoveAll("/workspace/carrel/.omp/rules/foreign.md")
-
-	// Register a rule that would go to the same path
 	reg := openRegistry(t)
 	defer reg.Close()
+
+	// Resolve the carrel consumer
+	c, err := reg.ResolveConsumer("/workspace/carrel")
+	if err != nil {
+		t.Fatalf("resolve consumer: %v", err)
+	}
+
+	// Create a slot that deploys to rules/foreign.md
+	slotID := uuid.New()
+	if err := reg.RegisterSlot(registry.Slot{
+		ID:         slotID,
+		ConsumerID: c.ID,
+		Name:       "foreign",
+		DestPath:   "rules/foreign.md",
+	}); err != nil {
+		t.Fatalf("register slot: %v", err)
+	}
+	defer reg.RemoveSlot(slotID)
+
+	// Register an entry and link it to the slot
 	sources, _ := reg.ListSources()
+	entryID := uuid.New()
 	e := registry.Entry{
-		ID:           uuid.New(),
+		ID:           entryID,
 		SourceID:     sources[0].ID,
 		Name:         "foreign",
 		Type:         registry.TypeRule,
 		RelativePath: "rules/foreign.md",
 	}
-	reg.RegisterEntry(e)
-	defer reg.RemoveEntry(e.ID)
+	if err := reg.RegisterEntry(e); err != nil {
+		t.Fatalf("register entry: %v", err)
+	}
+	defer reg.RemoveEntry(entryID)
+	if err := reg.LinkEntrySlot(entryID, slotID, 0); err != nil {
+		t.Fatalf("link entry to slot: %v", err)
+	}
+
+	// Create a foreign file at the deployment destination
+	os.MkdirAll("/workspace/carrel/.omp/rules", 0755)
+	os.WriteFile("/workspace/carrel/.omp/rules/foreign.md", []byte("foreign"), 0644)
+	defer os.Remove("/workspace/carrel/.omp/rules/foreign.md")
 
 	// Run should fail on conflict
 	cmd := exec.Command(carrelBin, "run")
@@ -576,11 +599,11 @@ func TestInspectSourceFile(t *testing.T) {
 		t.Fatalf("inspect failed: %v\n%s", err, out)
 	}
 	output := string(out)
-	if !strings.Contains(output, "Name:") {
-		t.Error("inspect should show metadata")
+	if !strings.Contains(output, "--- Content ---") {
+		t.Error("inspect should show content marker")
 	}
-	if !strings.Contains(output, "Content") {
-		t.Error("inspect should show content")
+	if !strings.Contains(output, "# No Push to oh-my-pi") {
+		t.Error("inspect should show file content")
 	}
 }
 
@@ -632,10 +655,33 @@ func TestTraceDeployed(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
 
-	// Set up a deployment claim
+	// Set up a deployment claim using a real entry UUID
 	reg := openRegistry(t)
 	defer reg.Close()
+
+	// Find the carrel-omp source and resolve the no-push-oh-my-pi entry
+	sources, _ := reg.ListSources()
 	consumer, _ := reg.ResolveConsumer("carrel")
+
+	// Collect all source IDs and resolve their entries
+	var sourceIDs []uuid.UUID
+	for _, s := range sources {
+		sourceIDs = append(sourceIDs, s.ID)
+	}
+	entries, _ := reg.ResolveEntries(sourceIDs)
+
+	// Find the no-push-oh-my-pi entry
+	var entryID uuid.UUID
+	for _, e := range entries {
+		if e.Name == "no-push-oh-my-pi" && e.Type == registry.TypeRule {
+			entryID = e.ID
+			break
+		}
+	}
+	if entryID == uuid.Nil {
+		t.Fatal("no-push-oh-my-pi entry not found")
+	}
+
 	deploymentID := uuid.New()
 	now := time.Now()
 	reg.RecordDeployment(registry.Deployment{
@@ -645,7 +691,7 @@ func TestTraceDeployed(t *testing.T) {
 		DeploymentID: deploymentID,
 		Path:         "/workspace/carrel/.omp/rules/no-push-oh-my-pi.md",
 		ContentHash:  42,
-		SourceEntry:  uuid.New(),
+		SourceEntry:  entryID,
 	}})
 
 	cmd := exec.Command(carrelBin, "trace", "carrel:/workspace/carrel/.omp/rules/no-push-oh-my-pi.md")
