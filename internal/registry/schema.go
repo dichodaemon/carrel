@@ -146,6 +146,13 @@ func BackfillV3(r *DoltRegistry) error {
 
 	// Backfill compose_mode for entries where it is NULL.
 	// Uses primitive_override if set, otherwise convention default.
+	// Skip if primitive_override column doesn't exist (fresh v1+ database
+	// may have been recreated without this legacy column).
+	var colExists int
+	r.db.QueryRow(`SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'entries' AND column_name = 'primitive_override'`).Scan(&colExists)
+	if colExists == 0 {
+		return nil
+	}
 	rows, err := r.db.Query(`SELECT e.id, e.type, e.primitive_override FROM entries e WHERE e.compose_mode IS NULL`)
 	if err != nil {
 		return fmt.Errorf("backfill query entries: %w", err)
