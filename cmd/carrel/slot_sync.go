@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/dichodaemon/carrel/internal/registry"
+	"github.com/dichodaemon/carrel/internal/scanner"
 )
 
 func slotSyncCmd() *cobra.Command {
@@ -51,6 +52,35 @@ Examples:
 				return fmt.Errorf("consumer %q: %w", consumerAlias, err)
 			}
 
+			// Scan linked sources to register new entries from remote
+			srcList, err := reg.ResolveSources(c.ID)
+			if err != nil {
+				return fmt.Errorf("resolve sources: %w", err)
+			}
+
+			allSources, _ := reg.ListSources()
+			srcByID := make(map[string]registry.Source)
+			for _, s := range allSources {
+				srcByID[s.ID.String()] = s
+			}
+
+			for _, s := range srcList {
+				src, ok := srcByID[s.ID.String()]
+				if !ok {
+					continue
+				}
+				results, scanErr := scanner.ScanSource(reg, src)
+				if scanErr != nil {
+					fmt.Printf("warning: scan %s: %v\n", src.Alias, scanErr)
+					continue
+				}
+				for _, r := range results {
+					if r.Action != "skipped" {
+						fmt.Printf("  %-12s %-15s %s\n", r.Action, r.Type, r.Name)
+					}
+				}
+			}
+
 			consumerSlotsPath := filepath.Join(c.Path, ".carrel", "slots.yml")
 			if _, statErr := os.Stat(consumerSlotsPath); statErr == nil {
 				// Consumer has its own slots.yml — apply it
@@ -61,6 +91,7 @@ Examples:
 				for _, w := range warnings {
 					fmt.Printf("warning: %s\n", w)
 				}
+
 				fmt.Printf("synced slots.yml for %s\n", consumerAlias)
 				return nil
 			}
