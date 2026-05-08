@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -34,6 +35,33 @@ var capabilityTypes = []struct {
 }
 
 
+
+// resolveEntryFromArgs parses positional args to find an entry.
+// If the first arg contains two colons, it's parsed as source:type:name.
+// Otherwise args are (type, name). Returns the entry and its source.
+func resolveEntryFromArgs(reg registry.Registry, args []string) (registry.Entry, registry.Source, error) {
+	// Check for compound ID: source:type:name
+	if len(args) >= 1 && strings.Count(args[0], ":") >= 2 {
+		ref := args[0]
+		sourceAlias, typ, name, err := registry.ParseEntryRef(ref)
+		if err != nil {
+			return registry.Entry{}, registry.Source{}, err
+		}
+		return authoring.FindEntryBySource(reg, sourceAlias, typ, name)
+	}
+
+	// Traditional (type, name)
+	if len(args) < 2 {
+		return registry.Entry{}, registry.Source{}, fmt.Errorf("type and name required")
+	}
+	typeName := args[0]
+	name := args[1]
+	typ, ok := lookupType(typeName)
+	if !ok {
+		return registry.Entry{}, registry.Source{}, fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
+	}
+	return authoring.FindEntry(reg, typ, name)
+}
 func crudAddCmd() *cobra.Command {
 	var sourceAlias string
 	var content string
@@ -152,23 +180,21 @@ func crudRmCmd() *cobra.Command {
 		Short: "Remove a configuration entry",
 		Long: `Remove a configuration entry from the registry and delete its file from disk.
 
+Accepts either traditional (type, name) or compound ID (source:type:name).
+
 Examples:
   carrel config rm rule no-push-master
-  carrel config rm skill validate`,
+  carrel config rm secondary-configs:append-system:APPEND_SYSTEM.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel config rm <type> <name>")
-			}
-			typeName := args[0]
-			name := args[1]
-			typ, ok := lookupType(typeName)
-			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
-			}
-
 			reg := mustOpenRegistry()
 			defer reg.Close()
-			return authoring.RemoveEntry(reg, typ, name)
+			entry, source, err := resolveEntryFromArgs(reg, args)
+			if err != nil {
+				return err
+			}
+			filePath := filepath.Join(source.Path, entry.RelativePath)
+			os.Remove(filePath)
+			return reg.RemoveEntry(entry.ID)
 		},
 	}
 }
@@ -178,61 +204,45 @@ func crudViewCmd() *cobra.Command {
 	var contentOnly bool
 
 	cmd := &cobra.Command{
-		Use:   "view <type> <name>",
+		Use:   "view <type> <name> or <source:type:name>",
 		Short: "View a configuration entry",
 		Long: `Show registry metadata and file content for a configuration entry.
 
 By default both metadata and content are shown. Use --meta-only or
 --content-only to filter.
 
+Accepts either traditional (type, name) or compound ID (source:type:name).
+
 Examples:
   carrel config view rule no-push-master
   carrel config view rule no-push-master --meta-only
-  carrel config view skill validate --content-only`,
+  carrel config view secondary-configs:append-system:APPEND_SYSTEM.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel config view <type> <name>")
-			}
-			typeName := args[0]
-			name := args[1]
-			typ, ok := lookupType(typeName)
-			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
-			}
-
 			reg := mustOpenRegistry()
 			defer reg.Close()
-
-			sources, _ := reg.ListSources()
-			var sourceIDs []uuid.UUID
-			for _, s := range sources {
-				sourceIDs = append(sourceIDs, s.ID)
+			entry, source, err := resolveEntryFromArgs(reg, args)
+			if err != nil {
+				return err
 			}
-			entries, _ := reg.ResolveEntries(sourceIDs)
-			for _, e := range entries {
-				if e.Type == typ && e.Name == name {
-					showBoth := !metaOnly && !contentOnly
 
-					if showBoth || !contentOnly {
-						fmt.Printf("Name: %s\nType: %s\nPath: %s\nHash: %d\nFinal: %v\n",
-							e.Name, typeName, e.RelativePath, e.ContentHash, e.Final)
-					}
+			showBoth := !metaOnly && !contentOnly
+			typeName := typeToNameCRUD(entry.Type)
 
-					if showBoth || !metaOnly {
-						fmt.Println("\n--- Content ---")
-						for _, s := range sources {
-							data, err := os.ReadFile(filepath.Join(s.Path, e.RelativePath))
-							if err == nil {
-								fmt.Println(string(data))
-								return nil
-							}
-						}
-						fmt.Println("(file not found on disk)")
-					}
+			if showBoth || !contentOnly {
+				fmt.Printf("Name: %s\nType: %s\nPath: %s\nHash: %d\nFinal: %v\n",
+					entry.Name, typeName, entry.RelativePath, entry.ContentHash, entry.Final)
+			}
+
+			if showBoth || !metaOnly {
+				fmt.Println("\n--- Content ---")
+				data, err := os.ReadFile(filepath.Join(source.Path, entry.RelativePath))
+				if err == nil {
+					fmt.Println(string(data))
 					return nil
 				}
+				fmt.Println("(file not found on disk)")
 			}
-			return fmt.Errorf("%s %q not found", typeName, name)
+			return nil
 		},
 	}
 
@@ -246,24 +256,17 @@ func crudEditCmd() *cobra.Command {
 	var filePath string
 
 	cmd := &cobra.Command{
-		Use:   "edit <type> <name>",
+		Use:   "edit <type> <name> or <source:type:name>",
 		Short: "Edit a configuration entry",
 		Long: `Overwrite the content of a configuration entry's file and update the registry hash.
 
+Accepts either traditional (type, name) or compound ID (source:type:name).
+
 Examples:
   carrel config edit rule no-push-master --content="Updated rule content"
-  carrel config edit skill validate --file=./updated-validate.md`,
+  carrel config edit skill validate --file=./updated-validate.md
+  carrel config edit secondary-configs:append-system:APPEND_SYSTEM.md --content="..."`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel config edit <type> <name>")
-			}
-			typeName := args[0]
-			name := args[1]
-			typ, ok := lookupType(typeName)
-			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
-			}
-
 			var data []byte
 			if content != "" {
 				data = []byte(content)
@@ -279,7 +282,15 @@ Examples:
 
 			reg := mustOpenRegistry()
 			defer reg.Close()
-			return authoring.EditEntry(reg, typ, name, data)
+			entry, source, err := resolveEntryFromArgs(reg, args)
+			if err != nil {
+				return err
+			}
+			p := filepath.Join(source.Path, entry.RelativePath)
+			if err := os.WriteFile(p, data, 0644); err != nil {
+				return fmt.Errorf("write file: %w", err)
+			}
+			return reg.UpdateEntryMeta(entry.ID, registry.MetaUpdates{})
 		},
 	}
 
@@ -292,46 +303,30 @@ func crudUpdateCmd() *cobra.Command {
 	var final bool
 
 	cmd := &cobra.Command{
-		Use:   "update <type> <name>",
+		Use:   "update <type> <name> or <source:type:name>",
 		Short: "Update entry metadata",
 		Long: `Update metadata for a configuration entry without changing its content.
 
 Currently supports setting the 'final' flag, which prevents deeper scopes
 from overriding the entry during composition.
 
+Accepts either traditional (type, name) or compound ID (source:type:name).
+
 Examples:
   carrel config update rule no-push-master --final=true
-  carrel config update skill validate --final=false`,
+  carrel config update secondary-configs:append-system:APPEND_SYSTEM.md --final=true`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("type and name required: carrel config update <type> <name>")
-			}
-			typeName := args[0]
-			name := args[1]
-			typ, ok := lookupType(typeName)
-			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
-			}
-
 			reg := mustOpenRegistry()
 			defer reg.Close()
-
-			sources, _ := reg.ListSources()
-			var sourceIDs []uuid.UUID
-			for _, s := range sources {
-				sourceIDs = append(sourceIDs, s.ID)
+			entry, _, err := resolveEntryFromArgs(reg, args)
+			if err != nil {
+				return err
 			}
-			entries, _ := reg.ResolveEntries(sourceIDs)
-			for _, e := range entries {
-				if e.Type == typ && e.Name == name {
-					updates := registry.MetaUpdates{}
-					if cmd.Flags().Changed("final") {
-						updates.Final = &final
-					}
-					return reg.UpdateEntryMeta(e.ID, updates)
-				}
+			updates := registry.MetaUpdates{}
+			if cmd.Flags().Changed("final") {
+				updates.Final = &final
 			}
-			return fmt.Errorf("%s %q not found", typeName, name)
+			return reg.UpdateEntryMeta(entry.ID, updates)
 		},
 	}
 
@@ -348,21 +343,36 @@ The entry's UUID is preserved.
 
 Examples:
   carrel config rename rule old-name new-name
-  carrel config rename skill old-validate new-validate`,
+  carrel config rename carrel-omp:append-system:old-name new-name`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			reg := mustOpenRegistry()
+			defer reg.Close()
+
+			// Compound ID: args[0] = source:type:oldName, args[1] = newName
+			if len(args) >= 2 && strings.Count(args[0], ":") >= 2 {
+				srcAlias, typ, name, err := registry.ParseEntryRef(args[0])
+				if err != nil {
+					return err
+				}
+				entry, source, err := authoring.FindEntryBySource(reg, srcAlias, typ, name)
+
+				if err != nil {
+					return err
+				}
+				return renameEntryBySource(reg, entry, source, args[1])
+			}
+
+			// Traditional: args[0] = type, args[1] = oldName, args[2] = newName
 			if len(args) < 3 {
-				return fmt.Errorf("type, old name, and new name required: carrel config rename <type> <old> <new>")
+				return fmt.Errorf("type, old name, and new name required")
 			}
 			typeName := args[0]
 			oldName := args[1]
 			newName := args[2]
 			typ, ok := lookupType(typeName)
 			if !ok {
-				return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", typeName)
+				return fmt.Errorf("unknown type %q", typeName)
 			}
-
-			reg := mustOpenRegistry()
-			defer reg.Close()
 			return authoring.RenameEntry(reg, typ, oldName, newName)
 		},
 	}
@@ -375,4 +385,24 @@ func lookupType(name string) (registry.CapabilityType, bool) {
 		}
 	}
 	return 0, false
+}
+
+func typeToNameCRUD(typ registry.CapabilityType) string {
+	for _, ct := range capabilityTypes {
+		if ct.typ == typ {
+			return ct.name
+		}
+	}
+	return fmt.Sprintf("type-%d", typ)
+}
+
+func renameEntryBySource(reg registry.Registry, entry registry.Entry, source registry.Source, newName string) error {
+	oldPath := filepath.Join(source.Path, entry.RelativePath)
+	newRelPath := entry.RelativePath[:len(entry.RelativePath)-len(entry.Name)] + newName
+	newPath := filepath.Join(source.Path, newRelPath)
+	os.MkdirAll(filepath.Dir(newPath), 0755)
+	if err := os.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("rename file: %w", err)
+	}
+	return authoring.RenameEntry(reg, entry.Type, entry.Name, newName)
 }

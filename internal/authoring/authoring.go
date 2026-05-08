@@ -49,7 +49,7 @@ func AddEntry(reg registry.Registry, typ registry.CapabilityType, name string, s
 
 // RemoveEntry removes the file and registry entry matching the given type and name.
 func RemoveEntry(reg registry.Registry, typ registry.CapabilityType, name string) error {
-	entry, source, err := findEntry(reg, typ, name)
+	entry, source, err := FindEntry(reg, typ, name)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func RemoveEntry(reg registry.Registry, typ registry.CapabilityType, name string
 
 // EditEntry overwrites the file content and updates the ContentHash in the registry.
 func EditEntry(reg registry.Registry, typ registry.CapabilityType, name string, newContent []byte) error {
-	entry, source, err := findEntry(reg, typ, name)
+	entry, source, err := FindEntry(reg, typ, name)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func EditEntry(reg registry.Registry, typ registry.CapabilityType, name string, 
 
 // UpdateEntryMeta updates metadata fields (Final, PrimitiveOverride) on an entry.
 func UpdateEntryMeta(reg registry.Registry, typ registry.CapabilityType, name string, updates registry.MetaUpdates) error {
-	entry, _, err := findEntry(reg, typ, name)
+	entry, _, err := FindEntry(reg, typ, name)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func UpdateEntryMeta(reg registry.Registry, typ registry.CapabilityType, name st
 // RenameEntry moves the file to the new name's conventional path and updates
 // the registry, preserving the entry's UUID and other fields.
 func RenameEntry(reg registry.Registry, typ registry.CapabilityType, oldName string, newName string) error {
-	entry, source, err := findEntry(reg, typ, oldName)
+	entry, source, err := FindEntry(reg, typ, oldName)
 	if err != nil {
 		return err
 	}
@@ -154,9 +154,9 @@ func resolveSource(reg registry.Registry, alias string) (registry.Source, error)
 	return registry.Source{}, fmt.Errorf("source %q: %w", alias, registry.ErrNotFound)
 }
 
-// findEntry locates an entry by type and name across all sources.
+// FindEntry locates an entry by type and name across all sources.
 // Returns ErrNotFound if no match, or an error if multiple entries match.
-func findEntry(reg registry.Registry, typ registry.CapabilityType, name string) (registry.Entry, registry.Source, error) {
+func FindEntry(reg registry.Registry, typ registry.CapabilityType, name string) (registry.Entry, registry.Source, error) {
 	sources, err := reg.ListSources()
 	if err != nil {
 		return registry.Entry{}, registry.Source{}, fmt.Errorf("list sources: %w", err)
@@ -194,6 +194,46 @@ func findEntry(reg registry.Registry, typ registry.CapabilityType, name string) 
 	}
 
 	return *match, source, nil
+}
+
+// FindEntryBySource locates an entry by source alias, type, and name.
+func FindEntryBySource(reg registry.Registry, sourceAlias string, typ registry.CapabilityType, name string) (registry.Entry, registry.Source, error) {
+	src, err := resolveSource(reg, sourceAlias)
+	if err != nil {
+		return registry.Entry{}, registry.Source{}, err
+	}
+
+	entries, err := reg.ResolveEntries([]uuid.UUID{src.ID})
+	if err != nil {
+		return registry.Entry{}, registry.Source{}, fmt.Errorf("resolve entries: %w", err)
+	}
+
+	for _, e := range entries {
+		if e.Type == typ && e.Name == name {
+			return e, src, nil
+		}
+	}
+
+	return registry.Entry{}, registry.Source{}, fmt.Errorf("entry %s:%s:%s: %w", sourceAlias, typeToName[typ], name, registry.ErrNotFound)
+}
+
+// typeToName maps CapabilityType to its string form.
+var typeToName = map[registry.CapabilityType]string{
+	registry.TypeRule:          "rule",
+	registry.TypeSkill:         "skill",
+	registry.TypeCommand:       "command",
+	registry.TypeExtension:     "extension",
+	registry.TypeAgent:         "agent",
+	registry.TypeTool:          "tool",
+	registry.TypeHook:          "hook",
+	registry.TypePrompt:        "prompt",
+	registry.TypeInstruction:   "instruction",
+	registry.TypeContextFile:   "context-file",
+	registry.TypeAppendSystem:  "append-system",
+	registry.TypeZshConfig:     "zsh",
+	registry.TypeNvimConfig:    "nvim",
+	registry.TypeWeztermConfig: "wezterm",
+	registry.TypeP10kConfig:    "p10k",
 }
 
 // writeFile creates parent directories and writes content to path.
