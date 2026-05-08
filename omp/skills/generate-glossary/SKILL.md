@@ -1,13 +1,23 @@
 ---
 name: generate-glossary
-description: Generate a docs/glossary.md for the current project by exploring code and documentation, extracting project-specific vocabulary, then grilling the user to sharpen definitions and resolve ambiguities. Use when no glossary exists and the project has domain-specific terms that need precise definitions.
+description: Generate a docs/glossary.md for a project directory by exploring its code and documentation, extracting project-specific vocabulary, then grilling the user to sharpen definitions and resolve ambiguities. Accepts a path argument (defaults to cwd). Use when no glossary exists and the project has domain-specific terms that need precise definitions.
 ---
 
-Generate a `docs/glossary.md` for this project. If `docs/glossary.md` already exists, report it and ask whether to update the existing glossary or stop.
+Generate a `docs/glossary.md` for the target directory.
+
+## 0. Resolve target
+
+If the user provided a path argument, use it. Otherwise, use the current working directory.
+
+Check that `<target>/docs/` exists. If it does not, stop and report: "No `docs/` directory found at `<target>`. A glossary requires a `docs/` directory — it lives at `docs/glossary.md` and its scope is the parent of `docs/` and all descendants."
+
+If `<target>/docs/glossary.md` already exists, report it and ask whether to update the existing glossary or stop.
+
+The scope for the glossary is `<target>/` — the parent of the `docs/` directory — and all files and subdirectories under it.
 
 ## 1. Explore code
 
-Read source files under the repo root. Identify:
+Read source files under `<target>/` (excluding `docs/`). Identify:
 
 - Package names, module names, directory names that carry domain meaning
 - Types, interfaces, enums, and their field names
@@ -19,7 +29,7 @@ For each candidate term, note where it appears and how it's used. Skip general p
 
 ## 2. Explore documentation
 
-Read everything under `docs/`. Extract:
+Read everything under `<target>/docs/`. Extract:
 
 - Defined terms in existing reference docs, specs, arch-designs, READMEs
 - Implicit vocabulary — words used consistently with specific meaning
@@ -59,7 +69,7 @@ During the grilling:
 
 ## 5. Write the glossary
 
-Produce `docs/glossary.md` following the format defined in the glossary doc-definition. The file must contain all five required sections in order:
+Produce `<target>/docs/glossary.md` following the format defined in the glossary doc-definition. The file must contain all five required sections in order:
 
 1. `# Glossary`
 2. `## Terms` — canonical names with one-sentence definitions and _Avoid_ aliases, grouped under subheadings if clusters exist, alphabetically sorted
