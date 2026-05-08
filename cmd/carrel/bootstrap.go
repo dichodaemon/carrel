@@ -196,12 +196,18 @@ func generateDefaultSlots(reg registry.Registry, c registry.Consumer) error {
 			}
 			_ = reg.RegisterSlot(slot)
 
-			// Assign ALL entries with this name across all sources, with scope-derived priority
+			// Assign entries to the slot
 			for _, e2 := range entries {
-				if e2.Type == typ && e2.Name == e.Name {
-					priority := registry.ScopePriority[sourceScope[e2.SourceID]]
-					_ = reg.LinkEntrySlot(e2.ID, slot.ID, priority)
+				if conv.IsSingleton && conv.Dir == "" {
+					// Singleton slot: link all entries of this type regardless of name
+					if e2.Type != typ {
+						continue
+					}
+				} else if e2.Type != typ || e2.Name != e.Name {
+					continue
 				}
+				priority := registry.ScopePriority[sourceScope[e2.SourceID]]
+				_ = reg.LinkEntrySlot(e2.ID, slot.ID, priority)
 			}
 		}
 	}

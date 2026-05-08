@@ -102,7 +102,9 @@ func ScanSource(reg registry.Registry, source registry.Source) ([]ScanResult, er
 				results = append(results, scanFileDir(reg, source, typ, typeDir, conv, existing, singles)...)
 			}
 		} else if conv.IsSingleton {
-			results = append(results, scanSingleton(reg, source, typ, source.Path, conv, existing)...)
+			// Discover all files matching the convention pattern, not just the singleton.
+			// IsSingleton affects slot generation, not entry discovery.
+			results = append(results, scanFileDir(reg, source, typ, source.Path, conv, existing, nil)...)
 		}
 	}
 
