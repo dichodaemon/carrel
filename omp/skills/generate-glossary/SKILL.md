@@ -3,6 +3,8 @@ name: generate-glossary
 description: Generate a docs/glossary.md for a project directory by exploring its code and documentation, extracting project-specific vocabulary, then grilling the user to sharpen definitions and resolve ambiguities. Accepts a path argument (defaults to cwd). Use when no glossary exists and the project has domain-specific terms that need precise definitions.
 ---
 
+The glossary format is defined in `/workspace/folio/doc-definitions/glossary_definition.md`. Read it before writing — it is the authoritative format specification.
+
 Generate a `docs/glossary.md` for the target directory.
 
 ## 0. Resolve target
