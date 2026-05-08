@@ -324,27 +324,6 @@ func testRegistry(t *testing.T, newReg func() (registry.Registry, func())) {
 		}
 	})
 
-	t.Run("UpdateEntryMetaFinal", func(t *testing.T) {
-		reg, cleanup := newReg()
-		defer cleanup()
-
-		s := registry.Source{ID: uuid.New(), Alias: "s", Path: "/s"}
-		reg.RegisterSource(s)
-
-		e := registry.Entry{ID: uuid.New(), SourceID: s.ID, Name: "x",
-			Type: registry.TypeRule, RelativePath: "r/x.md"}
-		reg.RegisterEntry(e)
-
-		final := true
-		if err := reg.UpdateEntryMeta(e.ID, registry.MetaUpdates{Final: &final}); err != nil {
-			t.Fatalf("UpdateEntryMeta: %v", err)
-		}
-
-		entries, _ := reg.ResolveEntries([]uuid.UUID{s.ID})
-		if !entries[0].Final {
-			t.Error("Final not set")
-		}
-	})
 
 	t.Run("DeploymentLifecycle", func(t *testing.T) {
 		reg, cleanup := newReg()

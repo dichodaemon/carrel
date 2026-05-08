@@ -225,24 +225,24 @@ Examples:
 				return err
 			}
 
-			showBoth := !metaOnly && !contentOnly
-			typeName := typeToNameCRUD(entry.Type)
+		showBoth := !metaOnly && !contentOnly
+		typeName := typeToNameCRUD(entry.Type)
 
-			if showBoth || !contentOnly {
-				fmt.Printf("Name: %s\nType: %s\nPath: %s\nHash: %d\nFinal: %v\n",
-					entry.Name, typeName, entry.RelativePath, entry.ContentHash, entry.Final)
-			}
+		if showBoth || !contentOnly {
+			fmt.Printf("Name: %s\nType: %s\nPath: %s\nHash: %d\n",
+				entry.Name, typeName, entry.RelativePath, entry.ContentHash)
+		}
 
-			if showBoth || !metaOnly {
-				fmt.Println("\n--- Content ---")
-				data, err := os.ReadFile(filepath.Join(source.Path, entry.RelativePath))
-				if err == nil {
-					fmt.Println(string(data))
-					return nil
-				}
-				fmt.Println("(file not found on disk)")
-			}
-			return nil
+		if showBoth || !metaOnly {
+			fmt.Println("\n--- Content ---")
+			data, err := os.ReadFile(filepath.Join(source.Path, entry.RelativePath))
+			if err == nil {
+				fmt.Println(string(data))
+				return nil
+		}
+		fmt.Println("(file not found on disk)")
+	}
+	return nil
 		},
 	}
 
@@ -300,21 +300,14 @@ Examples:
 }
 
 func crudUpdateCmd() *cobra.Command {
-	var final bool
-
 	cmd := &cobra.Command{
 		Use:   "update <type> <name> or <source:type:name>",
 		Short: "Update entry metadata",
-		Long: `Update metadata for a configuration entry without changing its content.
-
-Currently supports setting the 'final' flag, which prevents deeper scopes
-from overriding the entry during composition.
+		Long: `Update metadata for a configuration entry.
 
 Accepts either traditional (type, name) or compound ID (source:type:name).
 
-Examples:
-  carrel config update rule no-push-master --final=true
-  carrel config update secondary-configs:append-system:APPEND_SYSTEM.md --final=true`,
+Currently a placeholder — compose mode is set by convention during entry scan.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reg := mustOpenRegistry()
 			defer reg.Close()
@@ -322,15 +315,11 @@ Examples:
 			if err != nil {
 				return err
 			}
-			updates := registry.MetaUpdates{}
-			if cmd.Flags().Changed("final") {
-				updates.Final = &final
-			}
-			return reg.UpdateEntryMeta(entry.ID, updates)
+			_ = entry
+			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&final, "final", false, "Set final flag (prevents deeper scope override)")
 	return cmd
 }
 

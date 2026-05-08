@@ -173,9 +173,6 @@ func (m *MemRegistry) UpdateEntryMeta(entryID uuid.UUID, updates MetaUpdates) er
 	if !ok {
 		return ErrNotFound
 	}
-	if updates.Final != nil {
-		e.Final = *updates.Final
-	}
 	if updates.ComposeMode != nil {
 		e.ComposeMode = **updates.ComposeMode
 	}

@@ -256,7 +256,6 @@ func deployConsumer(reg registry.Registry, c registry.Consumer, dryRun bool, onC
 				ID:       se.ID,
 				SourceID: se.SourceID,
 				Mode:     composer.ComposeMode(se.ComposeMode),
-				Final:    se.Final,
 				Priority: se.Priority,
 			})
 			entryLookup[se.ID] = se.Entry

@@ -196,11 +196,9 @@ func TestUpdateEntryMeta(t *testing.T) {
 		t.Fatalf("AddEntry: %v", err)
 	}
 
-	final := true
 	concat := registry.PrimitiveConcatenation
 	concatPtr := &concat
 	updates := registry.MetaUpdates{
-		Final:       &final,
 		ComposeMode: &concatPtr,
 	}
 
@@ -215,9 +213,6 @@ func TestUpdateEntryMeta(t *testing.T) {
 	}
 	if len(entries) != 1 {
 		t.Fatalf("got %d entries, want 1", len(entries))
-	}
-	if !entries[0].Final {
-		t.Error("Final should be true")
 	}
 	if entries[0].ComposeMode != concat {
 		t.Errorf("ComposeMode = %v, want %v", entries[0].ComposeMode, concat)

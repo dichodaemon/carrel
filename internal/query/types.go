@@ -11,7 +11,6 @@ type FileResult struct {
 	Path        string              `json:"path"`
 	Status      FileStatus          `json:"status"`
 	ContentHash int64               `json:"contentHash"`
-	Final       bool                `json:"final"`
 	ID          string              `json:"id"`
 }
 

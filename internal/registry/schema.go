@@ -2,7 +2,7 @@ package registry
 
 import "fmt"
 
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 var Migrations = map[int][]string{
 	1: {
@@ -95,6 +95,11 @@ var Migrations = map[int][]string{
 	5: {
 		`UPDATE schema_version SET version = 5`,
 		`ALTER TABLE entry_slots ADD COLUMN priority INT NOT NULL DEFAULT 0`,
+	},
+	6: {
+		`UPDATE schema_version SET version = 6`,
+		`ALTER TABLE entries DROP COLUMN final`,
+		`ALTER TABLE entries DROP COLUMN primitive_override`,
 	},
 
 

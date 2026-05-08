@@ -146,19 +146,17 @@ func (r *DoltRegistry) ListSources() ([]Source, error) {
 // RegisterEntry implements Registry.
 func (r *DoltRegistry) RegisterEntry(e Entry) error {
 	_, err := r.db.Exec(
-		`INSERT INTO entries (id, source_id, name, type, relative_path, content_hash, final, compose_mode, created_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO entries (id, source_id, name, type, relative_path, content_hash, compose_mode, created_by)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON DUPLICATE KEY UPDATE
 		   name = VALUES(name),
 		   type = VALUES(type),
 		   relative_path = VALUES(relative_path),
 		   content_hash = VALUES(content_hash),
-		   final = VALUES(final),
 		   compose_mode = VALUES(compose_mode),
 		   created_by = VALUES(created_by)`,
 		e.ID.String(), e.SourceID.String(), e.Name, int(e.Type),
-		e.RelativePath, e.ContentHash, e.Final, int(e.ComposeMode), int(e.CreatedBy),
-	)
+		e.RelativePath, e.ContentHash, int(e.ComposeMode), int(e.CreatedBy))
 	return err
 }
 
@@ -200,15 +198,11 @@ func (r *DoltRegistry) RemoveEntry(entryID uuid.UUID) error {
 
 // UpdateEntryMeta implements Registry.
 func (r *DoltRegistry) UpdateEntryMeta(entryID uuid.UUID, updates MetaUpdates) error {
-	if updates.Final == nil && updates.ComposeMode == nil {
+	if updates.ComposeMode == nil {
 		return nil
 	}
 	setClauses := []string{}
 	args := []interface{}{}
-	if updates.Final != nil {
-		setClauses = append(setClauses, "final = ?")
-		args = append(args, *updates.Final)
-	}
 	if updates.ComposeMode != nil {
 		setClauses = append(setClauses, "compose_mode = ?")
 		args = append(args, int(**updates.ComposeMode))
@@ -466,7 +460,7 @@ func scanEntries(rows *sql.Rows) ([]Entry, error) {
 		var idStr, srcIDStr string
 		var typ, createdBy int
 		var composeMode int
-		if err := rows.Scan(&idStr, &srcIDStr, &e.Name, &typ, &e.RelativePath, &e.ContentHash, &e.Final, &composeMode, &createdBy); err != nil {
+		if err := rows.Scan(&idStr, &srcIDStr, &e.Name, &typ, &e.RelativePath, &e.ContentHash, &composeMode, &createdBy); err != nil {
 			return nil, err
 		}
 		e.ID, _ = parseUUID(idStr)
@@ -506,7 +500,7 @@ func scanSlotEntries(rows *sql.Rows) ([]SlotEntry, error) {
 		var idStr, srcIDStr string
 		var typ, createdBy int
 		var composeMode int
-		if err := rows.Scan(&idStr, &srcIDStr, &se.Name, &typ, &se.RelativePath, &se.ContentHash, &se.Final, &composeMode, &createdBy, &se.Priority); err != nil {
+		if err := rows.Scan(&idStr, &srcIDStr, &se.Name, &typ, &se.RelativePath, &se.ContentHash, &composeMode, &createdBy, &se.Priority); err != nil {
 			return nil, err
 		}
 		se.ID, _ = parseUUID(idStr)

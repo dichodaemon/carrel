@@ -67,8 +67,6 @@ Examples:
 				entries, _ := reg.ResolveEntries(sourceIDs)
 				for _, e := range entries {
 					if e.Type == typ && e.Name == name {
-						fmt.Printf("Name: %s\nType: %s\nPath: %s\nHash: %d\nFinal: %v\n\n",
-							e.Name, typeName, e.RelativePath, e.ContentHash, e.Final)
 						// Read content
 						for _, s := range sources {
 							data, err := os.ReadFile(filepath.Join(s.Path, e.RelativePath))

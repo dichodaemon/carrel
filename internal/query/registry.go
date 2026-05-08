@@ -76,7 +76,6 @@ func (q *queryImpl) ListFiles(opts FileQueryOpts) ([]FileResult, error) {
 			Path:        fullPath,
 			Status:      status,
 			ContentHash: e.ContentHash,
-			Final:       e.Final,
 			ID:          fmt.Sprintf("%s:%s:%s", src.Alias, typeName(e.Type), e.Name),
 		})
 	}
@@ -191,7 +190,6 @@ func (q *queryImpl) Plan(consumerAlias string) ([]PlanResult, error) {
 				ID:       se.ID,
 				SourceID: se.SourceID,
 				Mode:     composer.ComposeMode(se.ComposeMode),
-				Final:    se.Final,
 				Priority: se.Priority,
 			})
 			entryLookup[se.ID] = se.Entry
@@ -297,7 +295,6 @@ func (q *queryImpl) Preview(consumerAlias string, deployPath string) (*PreviewFi
 				ID:       se.ID,
 				SourceID: se.SourceID,
 				Mode:     composer.ComposeMode(se.ComposeMode),
-				Final:    se.Final,
 				Priority: se.Priority,
 			})
 			entryLookup[se.ID] = se.Entry

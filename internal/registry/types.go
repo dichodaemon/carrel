@@ -109,7 +109,6 @@ type Entry struct {
 	Type              CapabilityType // Rule, Skill, Command, etc.
 	RelativePath      string         // Path relative to source root
 	ContentHash       int64          // xxHash of file content at last sync
-	Final             bool           // If true, deeper scopes cannot override
 	ComposeMode       ComposeMode    // override or concatenation (mandatory, set by scan from convention)
 	CreatedBy         EntryOrigin    // Carrel or UserAuthored
 }

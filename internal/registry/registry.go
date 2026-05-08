@@ -43,7 +43,6 @@ type Registry interface {
 
 // MetaUpdates carries optional metadata changes for UpdateEntryMeta.
 type MetaUpdates struct {
-	Final       *bool
 	ComposeMode **ComposeMode // double pointer: nil = no change, *nil = clear, set = update
 }
 
