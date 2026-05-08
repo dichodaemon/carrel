@@ -137,7 +137,10 @@ func TestRunDryRun(t *testing.T) {
 func TestCRUDAddAndList(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
+	rulePath := filepath.Join("/workspace/carrel/omp", "rules", "test-rule.md")
+	os.Remove(rulePath) // clean up from previous runs
 	t.Skip("skipping: Dolt registry is read-only when carrel session is active")
+
 
 	cmd := exec.Command(carrelBin, "config", "add", "rule", "test-rule",
 		"--source=carrel-omp", "--content=test content")
@@ -147,13 +150,11 @@ func TestCRUDAddAndList(t *testing.T) {
 	}
 
 	// Verify file was created
-	rulePath := filepath.Join("/workspace/carrel/omp", "rules", "test-rule.md")
 	if _, err := os.Stat(rulePath); err != nil {
 		t.Error("rule file not created at", rulePath)
 	}
 	defer os.Remove(rulePath)
 	defer func() { exec.Command(carrelBin, "config", "rm", "rule", "test-rule").Run() }()
-
 	// List rules
 	cmd = exec.Command(carrelBin, "config", "list", "rule")
 	out, err = cmd.CombinedOutput()
@@ -169,6 +170,7 @@ func TestCRUDAddAndList(t *testing.T) {
 func TestCRUDRemove(t *testing.T) {
 	buildCarrelBin(t)
 	exec.Command(carrelBin, "bootstrap").Run()
+	os.Remove(filepath.Join("/workspace/carrel/omp", "rules", "remove-me.md")) // clean up from previous runs
 	t.Skip("skipping: Dolt registry is read-only when carrel session is active")
 
 	exec.Command(carrelBin, "config", "add", "rule", "remove-me",
