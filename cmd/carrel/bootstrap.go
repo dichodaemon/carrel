@@ -164,13 +164,17 @@ func generateDefaultSlots(reg registry.Registry, c registry.Consumer) error {
 			continue
 		}
 
-		// Create one slot per unique entry name
+		// Create one slot per (entry name, source) pair — no implicit override
 		seen := make(map[string]bool)
 		for _, e := range entries {
-			if e.Type != typ || seen[e.Name] {
+			if e.Type != typ {
 				continue
 			}
-			seen[e.Name] = true
+			key := e.Name + ":" + e.SourceID.String()
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
 
 			var slotName, destPath string
 			if conv.IsSingleton && conv.Dir == "" {
@@ -196,18 +200,21 @@ func generateDefaultSlots(reg registry.Registry, c registry.Consumer) error {
 			}
 			_ = reg.RegisterSlot(slot)
 
-			// Assign entries to the slot
-			for _, e2 := range entries {
-				if conv.IsSingleton && conv.Dir == "" {
-					// Singleton slot: link all entries of this type regardless of name
+			// Link entries to this slot
+			if conv.IsSingleton && conv.Dir == "" {
+				// Singleton slot: link all entries of this type from all sources
+				for _, e2 := range entries {
 					if e2.Type != typ {
 						continue
 					}
-				} else if e2.Type != typ || e2.Name != e.Name {
-					continue
+					priority := registry.ScopePriority[sourceScope[e2.SourceID]]
+					_ = reg.LinkEntrySlot(e2.ID, slot.ID, priority)
 				}
-				priority := registry.ScopePriority[sourceScope[e2.SourceID]]
-				_ = reg.LinkEntrySlot(e2.ID, slot.ID, priority)
+				break // only one singleton slot
+			} else {
+				// Non-singleton: link only this specific entry
+				priority := registry.ScopePriority[sourceScope[e.SourceID]]
+				_ = reg.LinkEntrySlot(e.ID, slot.ID, priority)
 			}
 		}
 	}
