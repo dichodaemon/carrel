@@ -24,10 +24,10 @@ This workspace uses a documentation framework with strict format definitions and
 
 ### Glossary
 
-A project may have a `docs/glossary.md` — a living lexicon of project-specific vocabulary. It defines the terms, concepts, and names that have precise meaning within the codebase and cannot be looked up in a general reference. Format is defined in `/workspace/folio/doc-definitions/glossary_definition.md`.
+A `docs/` directory may contain a `glossary.md` — a living lexicon of project-specific vocabulary. It defines terms, concepts, and names that have precise meaning within the scope of the `docs/` directory's parent and all its descendants. Format is defined in `/workspace/folio/doc-definitions/glossary_definition.md`.
 
-- **Use glossary terms when possible.** When writing documentation, commit messages, code comments, or agent output about the project, prefer the canonical terms defined in the glossary. Do not use avoided aliases.
-- **Check the glossary before coining a term.** If you're about to introduce a new term, check whether the glossary already has one for that concept. If it does, use it.
-- **When a glossary exists and you're generating documentation**, read it first. The glossary is the vocabulary contract for the project — documentation that ignores it creates confusion.
+- **Use glossary terms when possible.** When writing documentation, commit messages, code comments, or agent output about anything within the glossary's scope, prefer the canonical terms defined in it. Do not use avoided aliases.
+- **Check the glossary before coining a term.** If you're about to introduce a new term within a scope that has a glossary, check whether it already defines one for that concept. If it does, use it.
+- **Check whether a glossary exists for the scope you're working in.** When starting work in a directory, look for a `docs/glossary.md` at that level or above. If one exists, read it before generating documentation.
 ---
 
