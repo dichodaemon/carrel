@@ -169,9 +169,31 @@ func runCmd() *cobra.Command {
 			for _, w := range checkSlotsConsistency(reg, c.Alias) {
 				fmt.Fprintf(os.Stderr, "warning: slots.yml: %s\n", w)
 			}
+
+			// Apply source slot-defaults.yml for universal sources if consumer has no slots.yml
+			consumerSlotsPath := filepath.Join(c.Path, ".carrel", "slots.yml")
+			if _, err := os.Stat(consumerSlotsPath); os.IsNotExist(err) {
+				sources, srcErr := reg.ResolveSources(c.ID)
+				if srcErr == nil {
+					for _, s := range sources {
+						defaultsPath := filepath.Join(s.Path, "slot-defaults.yml")
+						w, e := registry.ApplySlotDefaults(reg, c, s, defaultsPath)
+						if e != nil {
+							fmt.Fprintf(os.Stderr, "warning: slot-defaults.yml for %s: %v\n", s.Alias, e)
+						}
+						for _, ww := range w {
+							fmt.Fprintf(os.Stderr, "warning: slot-defaults.yml: %s\n", ww)
+						}
+					}
+				}
+			}
 			deployedPaths, err := deployConsumer(reg, c, dryRun, onConflict)
 			if err != nil {
 				return err
+			}
+
+			if dryRun {
+				return nil
 			}
 
 			// Ensure .git/info/exclude for non-opt-in repos

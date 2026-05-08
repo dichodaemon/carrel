@@ -187,13 +187,24 @@ Examples:
 					}
 				}
 
-				// Apply .carrel/slots.yml if present, otherwise generate defaults
-				slotsPath := filepath.Join(c.Path, ".carrel", "slots.yml")
-				warnings, err := registry.ApplySlotsFile(reg, c, slotsPath)
+				// Apply .carrel/slots.yml if present, otherwise try source defaults
+				consumerSlotsPath := filepath.Join(c.Path, ".carrel", "slots.yml")
+				warnings, err := registry.ApplySlotsFile(reg, c, consumerSlotsPath)
 				if err != nil {
 					fmt.Printf("  warning: slots.yml read error: %v\n", err)
-					if err := generateDefaultSlots(reg, c); err != nil {
-						fmt.Printf("  warning: slot generation: %v\n", err)
+					// Try source slot-defaults.yml
+					sourceDefaultsPath := filepath.Join(path, "slot-defaults.yml")
+					w2, e2 := registry.ApplySlotDefaults(reg, c, src, sourceDefaultsPath)
+					if e2 != nil {
+						fmt.Printf("  warning: slot-defaults.yml: %v\n", e2)
+						if err := generateDefaultSlots(reg, c); err != nil {
+							fmt.Printf("  warning: slot generation: %v\n", err)
+						}
+					} else {
+						for _, w := range w2 {
+							fmt.Printf("  warning: slot-defaults.yml: %s\n", w)
+						}
+						fmt.Printf("applied slot-defaults.yml from %s for %s\n", alias, consumerAlias)
 					}
 				} else {
 					for _, w := range warnings {

@@ -1,0 +1,34 @@
+# Default slot contributions for the carrel-omp universal source.
+# These declarations ensure that consumers which haven't declared their own
+# .carrel/slots.yml still get the correct entry-to-slot wiring.
+#
+# A consumer with its own .carrel/slots.yml takes priority — this file is
+# skipped entirely for those consumers.
+
+contributions:
+  - slot: APPEND_SYSTEM.md
+    entries:
+      - append-system:APPEND_SYSTEM.md
+      - append-system:beads-policy.md
+      - append-system:carrel-policy.md
+      - append-system:folio-policy.md
+
+  - slot: carrel-configuration
+    entries:
+      - rule:carrel-configuration
+
+  - slot: grill-me
+    entries:
+      - skill:grill-me
+
+  - slot: no-push-oh-my-pi
+    entries:
+      - rule:no-push-oh-my-pi
+
+  - slot: rebase-pr-chain
+    entries:
+      - skill:rebase-pr-chain
+
+  - slot: rebase-pr-tree
+    entries:
+      - skill:rebase-pr-tree

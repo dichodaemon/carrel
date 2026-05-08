@@ -286,3 +286,124 @@ func ApplySlotsFile(reg Registry, c Consumer, path string) (warnings []string, e
 
 	return warnings, nil
 }
+
+// SlotDefaultsFile is the structure of a source's slot-defaults.yml file.
+// It declares which entries from this source contribute to which slots.
+type SlotDefaultsFile struct {
+	Contributions []SlotDefault `yaml:"contributions"`
+}
+
+// SlotDefault declares a slot and the entries from this source that feed it.
+// Entry references are type:name (source alias is implicit).
+type SlotDefault struct {
+	Slot    string   `yaml:"slot"`
+	Entries []string `yaml:"entries"`
+}
+
+// ParseSlotDefaults parses a YAML byte slice into a SlotDefaultsFile.
+func ParseSlotDefaults(data []byte) (*SlotDefaultsFile, error) {
+	var sf SlotDefaultsFile
+	if err := yaml.Unmarshal(data, &sf); err != nil {
+		return nil, fmt.Errorf("parse slot-defaults.yml: %w", err)
+	}
+	return &sf, nil
+}
+
+// ApplySlotDefaults reads slot-defaults.yml from a source directory and applies
+// its contribution declarations to a consumer. Entries are resolved within the
+// given source only. Returns warnings for unresolvable entries.
+func ApplySlotDefaults(reg Registry, c Consumer, src Source, path string) (warnings []string, err error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read slot-defaults.yml: %w", err)
+	}
+
+	sdf, err := ParseSlotDefaults(data)
+	if err != nil {
+		return nil, err
+	}
+
+	existingSlots, _ := reg.ResolveSlots(c.ID)
+	slotByName := make(map[string]Slot)
+	for _, s := range existingSlots {
+		slotByName[s.Name] = s
+	}
+
+	// Get all entries from this source
+	entries, _ := reg.ResolveEntries([]uuid.UUID{src.ID})
+
+	for _, sd := range sdf.Contributions {
+		slot, slotExists := slotByName[sd.Slot]
+		if !slotExists {
+			// Create slot with conventional destination
+			slot = Slot{
+				ID:         uuid.New(),
+				ConsumerID: c.ID,
+				Name:       sd.Slot,
+				DestPath:   sd.Slot, // default: slot name = dest path; conventions may override
+			}
+			if err := reg.RegisterSlot(slot); err != nil {
+				warnings = append(warnings, fmt.Sprintf("slot %q: register: %v", sd.Slot, err))
+				continue
+			}
+		}
+
+		for _, entryRef := range sd.Entries {
+			typeName, name := splitTypeName(entryRef)
+			if typeName == "" || name == "" {
+				warnings = append(warnings, fmt.Sprintf("slot %q: invalid entry ref %q", sd.Slot, entryRef))
+				continue
+			}
+
+			var entryID uuid.UUID
+			for _, e := range entries {
+				if e.Name == name {
+					if typStr := typeToName[e.Type]; typStr == typeName {
+						entryID = e.ID
+						break
+					}
+				}
+			}
+			if entryID == uuid.Nil {
+				warnings = append(warnings, fmt.Sprintf("slot %q: entry %q not found in source %q", sd.Slot, entryRef, src.Alias))
+				continue
+			}
+
+			priority := ScopePriority[src.Scope]
+			_ = reg.LinkEntrySlot(entryID, slot.ID, priority)
+		}
+	}
+
+	return warnings, nil
+}
+
+// splitTypeName splits "type:name" into its two components.
+func splitTypeName(ref string) (typ, name string) {
+	idx := strings.IndexByte(ref, ':')
+	if idx < 0 {
+		return "", ""
+	}
+	return ref[:idx], ref[idx+1:]
+}
+
+// typeToName maps CapabilityType to its string form.
+var typeToName = map[CapabilityType]string{
+	TypeRule:          "rule",
+	TypeSkill:         "skill",
+	TypeCommand:       "command",
+	TypeExtension:     "extension",
+	TypeAgent:         "agent",
+	TypeTool:          "tool",
+	TypeHook:          "hook",
+	TypePrompt:        "prompt",
+	TypeInstruction:   "instruction",
+	TypeContextFile:   "context-file",
+	TypeAppendSystem:  "append-system",
+	TypeZshConfig:     "zsh",
+	TypeNvimConfig:    "nvim",
+	TypeWeztermConfig: "wezterm",
+	TypeP10kConfig:    "p10k",
+}
