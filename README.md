@@ -103,9 +103,8 @@ assembled state exists. The registry tracks metadata (consumers, sources,
 entries, deployments); the filesystem owns content. Neither is master —
 drift is detected and surfaced, never silently resolved.
 
-Composition is a pure function. Four primitives govern how entries combine:
-override (deepest scope wins, final flag prevents override), concatenation
-(append in source order), reference, and inheritance. Sources are layered:
+Composition is a pure function. Two operators govern how entries combine:
+override (deepest scope wins) and concatenation (append in source order). Sources are layered:
 universal → target-specific → user-personal → host-local.
 
 Deployment follows a claim model: every successful deployment records paths
@@ -120,7 +119,7 @@ conflict policy (error, backup, or skip).
 Tests cover:
 
 - **Registry** — Consumer/source/entry/deployment CRUD on Dolt and in-memory backends.
-- **Composer** — Override (deepest scope, final flag), concatenation ordering, determinism.
+- **Composer** — Override (deepest scope), concatenation ordering, determinism.
 - **Deployer** — Collision policies (error/backup/skip), stale cleanup, dry-run, claim recording.
 - **Scanner** — Workspace discovery, source scanning.
 - **Authoring** — Add, remove, edit, update metadata, rename for all capability types.

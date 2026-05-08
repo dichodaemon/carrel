@@ -27,7 +27,7 @@ Configuration comes from sources registered in the carrel registry. Sources are 
 | User-personal | OS tool customization | User dotfiles repo |
 | Host-local | Host-level overrides | `config/local/` |
 
-Universal sources are inherited by all consumers. Deeper scopes override shallower scopes (unless an entry has the `final` flag).
+Universal sources are inherited by all consumers. Deeper scopes override shallower scopes.
 
 ## Deployment (`carrel run`)
 
@@ -119,13 +119,6 @@ Alternatively, edit the source file directly then rescan:
 carrel config scan carrel-omp
 ```
 
-### Update metadata
-
-```bash
-carrel config update rule no-push-master --final=true
-```
-
-Currently supports the `--final` flag, which prevents deeper scopes from overriding.
 
 ### Rename an entry
 
