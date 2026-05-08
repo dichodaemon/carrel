@@ -36,3 +36,7 @@ contributions:
   - slot: rebase-pr-tree
     entries:
       - skill:rebase-pr-tree
+
+  - slot: generate-glossary
+    entries:
+      - skill:generate-glossary
