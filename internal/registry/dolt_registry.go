@@ -165,7 +165,7 @@ func (r *DoltRegistry) ResolveEntries(sourceIDs []uuid.UUID) ([]Entry, error) {
 	if len(sourceIDs) == 0 {
 		return nil, nil
 	}
-	query := `SELECT id, source_id, name, type, relative_path, content_hash, final, compose_mode, created_by FROM entries WHERE source_id IN (`
+	query := `SELECT id, source_id, name, type, relative_path, content_hash, compose_mode, created_by FROM entries WHERE source_id IN (`
 	args := make([]interface{}, len(sourceIDs))
 	for i, id := range sourceIDs {
 		if i > 0 {
@@ -408,7 +408,7 @@ func (r *DoltRegistry) UnlinkEntrySlot(entryID, slotID uuid.UUID) error {
 // ResolveEntrySlots implements Registry.
 func (r *DoltRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]SlotEntry, error) {
 	rows, err := r.db.Query(
-		`SELECT e.id, e.source_id, e.name, e.type, e.relative_path, e.content_hash, e.final, e.compose_mode, e.created_by, es.priority
+		`SELECT e.id, e.source_id, e.name, e.type, e.relative_path, e.content_hash, e.compose_mode, e.created_by, es.priority
 		 FROM entries e JOIN entry_slots es ON e.id = es.entry_id
 		 WHERE es.slot_id = ? ORDER BY es.priority ASC, e.type, e.name`,
 		slotID.String(),

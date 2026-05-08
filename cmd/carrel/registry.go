@@ -8,11 +8,15 @@ import (
 )
 
 func mustOpenRegistry() registry.Registry {
-	if err := os.MkdirAll("/workspace/.carrel", 0755); err != nil {
+	dir := os.Getenv("CARREL_REGISTRY_DIR")
+	if dir == "" {
+		dir = "/workspace/.carrel"
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "registry dir: %v\n", err)
 		os.Exit(1)
 	}
-	reg, err := registry.New("/workspace/.carrel")
+	reg, err := registry.New(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "registry: %v\n", err)
 		os.Exit(1)
