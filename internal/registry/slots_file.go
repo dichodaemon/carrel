@@ -275,7 +275,12 @@ func ApplySlotsFile(reg Registry, c Consumer, path string) (warnings []string, e
 				}
 			}
 			if entryID == uuid.Nil {
-				warnings = append(warnings, fmt.Sprintf("slot %q: entry %q not found", sd.Name, ed.Ref))
+				// Collect available entry names for diagnosis
+				var found []string
+				for _, e := range entries {
+					found = append(found, fmt.Sprintf("%s:%s", typeToName[e.Type], e.Name))
+				}
+				warnings = append(warnings, fmt.Sprintf("slot %q: entry %q not found in source %q (found: %v)", sd.Name, ed.Ref, srcAlias, found))
 				continue
 			}
 
