@@ -4,7 +4,7 @@
 
 Beads (`bd`) is the **mandatory** task tracking system for all work. You **MUST** use it for every task that spans multiple turns or involves dependencies. You **MUST NOT** use TodoWrite, TodoCreate, markdown checklists, or ad-hoc files for task tracking.
 
-Initialize with `bd init` in a project directory when starting work. The database is stored in `.beads/` (Dolt SQL) — gitignored. Run `bd prime` for full command reference and session close protocol.
+Initialize with `bd init --skip-agents --skip-hooks` in a project directory when starting work. The `--skip-agents` flag prevents beads from generating `AGENTS.md`, `CLAUDE.md`, and `.claude/` files — the system prompt already provides beads integration. `--skip-hooks` skips git hook installation (hooks are managed separately). The database is stored in `.beads/` (Dolt SQL) — gitignored. Run `bd prime` for full command reference and session close protocol.
 
 Key commands:
 ```bash
