@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd /workspace/carrel
+CGO_ENABLED=1 go build -o /workspace/carrel/bin/carrel ./cmd/carrel
