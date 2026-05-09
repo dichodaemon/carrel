@@ -33,6 +33,36 @@ Every issue **MUST** have: `--title`, `--description`, `--type`, `--priority` (0
 
 For batch creation (more than a handful of issues), use `bd create --graph <plan.json>`. You **MUST NOT** run individual `bd create` and `bd dep add` in a loop.
 
+### Graph JSON format
+
+```json
+{
+  "nodes": [
+    {
+      "key": "short-key",
+      "title": "Issue title",
+      "description": "What to do and why",
+      "type": "task",
+      "priority": 2
+    }
+  ],
+  "edges": [
+    {
+      "from_key": "blocked-issue-key",
+      "to_key": "blocker-issue-key",
+      "type": "blocks"
+    }
+  ]
+}
+```
+
+- **`key`** (required): local reference for wiring edges. Not the final bead ID — beads assigns IDs on creation and prints the mapping (`key -> bead-id`).
+- **`type`** on nodes: `task`, `bug`, `feature`, `epic`, `chore`, `decision`.
+- **`type`** on edges: `blocks`, `parent-child`, `discovered-from`, `related`.
+- **`from_key`/`to_key`**: reference node keys within the same graph. `from_key` is the dependent; `to_key` is the dependency (same direction as `bd dep add <from> <to>`).
+- Edge semantics match the Dependencies table below.
+- `--dry-run` is broken (creates real issues despite the flag). Validate your JSON structure before running.
+
 ## Dependencies
 
 | Type | When to use |

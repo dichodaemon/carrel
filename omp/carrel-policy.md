@@ -10,3 +10,8 @@ For detailed carrel mechanics (sources, slots, CRUD, deployment), see `/workspac
 
 ---
 
+## Agent Safety
+
+You **MUST NOT** run `carrel run` from an agent session. It is interactive (prompts for confirmation) and will stall indefinitely. It also acquires a Dolt database lock that is not released on kill, requiring manual cleanup (`cd .beads && dolt sql -q "call dolt_clean()"` or similar).
+
+To preview what a deployment would produce without executing it, use `carrel plan` (non-interactive, read-only).
