@@ -20,29 +20,33 @@ Create all issues upfront before writing any code. This gives the full dependenc
 
 **Batch creation.** When creating more than a handful of issues, use `bd create --graph <plan.json>` to create the full issue graph (issues + dependencies) in a single operation. Do not run individual `bd create` and `bd dep add` commands in a loop -- the per-call overhead compounds and the inline arguments bloat context. Write the graph to a JSON file first, then create in one call.
 
-### 1.2. When Beads Replaces a Plan
+### 1.2. When to Use an Implementation Plan
 
 | Companion exists? | Task complexity | Use |
 |---|---|---|
-| Arch-design exists | Any | Beads issues. No implementation plan. |
-| Spec or design study exists | Multi-step | Beads issues. No implementation plan. |
+| Arch-design exists | Multi-step | Write an implementation plan. Convert to beads issues on approval. |
+| Spec or design study exists | Multi-step | Write an implementation plan. Convert to beads issues on approval. |
+| Arch-design or spec exists | Simple (1-3 steps) | Beads issues directly. No plan needed. |
 | None | Trivial (1-3 steps) | Beads issues only. |
-| None | Non-trivial | Write an arch-design or spec first. Then beads issues. |
+| None | Non-trivial | Write an arch-design or spec first. Then a plan if multi-step, or beads issues directly if simple. |
 
-Bug-fix plans are the exception. Root cause analysis, diagnostic evidence, and fix narrative have value that beads issues do not replicate. Use a bug-fix plan for investigations; a beads issue to track the work.
+An implementation plan is a design artifact that sequences work, maps the blast radius, and surfaces dependencies before execution. After approval, the plan's phases become epics and its tasks become issues in the tracker. See the Implementation Plan Definition (`folio/doc-definitions/impl-plan_definition.md`) section 6.2 for the handoff procedure.
+
+Bug-fix plans follow the same lifecycle. Root cause analysis, diagnostic evidence, and fix narrative have value that beads issues do not replicate. Use a bug-fix plan for investigations; beads issues to track the work.
 
 ---
 
 ## 2. Companion Documents
 
-Issues reference their companion document (arch-design or spec) by section number. The companion says *what*; the issue says *how*.
+Issues reference their companion document (arch-design, spec, or implementation plan) by section number. The companion says *what*; the issue says *how*.
 
 | Document | Beads' role |
 |---|---|
 | **Arch-design** | Issues decompose the arch-design into executable steps. Each issue references specific sections (types, contracts, acceptance criteria). |
 | **Spec** | Same as arch-design. Issues implement the spec's solution section. |
 | **Design study** | Issues may be created as deliverables of a resolved study. Link with `discovered-from` if a study issue exists. |
-| **Bug-fix plan** | Beads tracks the work; the plan documents the investigation. |
+| **Implementation plan** | Phases become epics; tasks become issues. The plan is the design artifact; beads is the execution artifact. See the Implementation Plan Definition (`folio/doc-definitions/impl-plan_definition.md`) section 6.2. |
+| **Bug-fix plan** | Same as implementation plan. Beads tracks the work; the plan documents the investigation. |
 
 ---
 
