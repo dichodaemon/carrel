@@ -1,6 +1,7 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=xterm-256color
 
 # Layer 1: System packages
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -21,6 +21,15 @@ source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 setopt histignorealldups sharehistory
 bindkey -e
 
+# Key bindings not covered by /etc/zsh/zshrc (which only binds unmodified keys
+# via terminfo).  These are the modifier+key sequences sent by WezTerm/xterm.
+bindkey "^[[1;5D" backward-word      # Ctrl+Left
+bindkey "^[[1;5C" forward-word       # Ctrl+Right
+bindkey "^[[1;3D" backward-word      # Alt+Left
+bindkey "^[[1;3C" forward-word       # Alt+Right
+bindkey "^[[3;5~" kill-word          # Ctrl+Delete
+bindkey "^[[3~"   delete-char        # Delete
+
 HISTSIZE=10000000
 SAVEHIST=10000000
 HISTFILE=~/.zsh_history
@@ -32,7 +41,6 @@ export PATH="$HOME/.local/bin:/workspace/carrel/bin:/workspace/carrel/tools:/usr
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
 export PI_NO_APPEARANCE_POLL=1
-export TERM=xterm-256color
 # bun
 if [[ -d "$HOME/.bun" ]]; then
   export BUN_INSTALL="$HOME/.bun"

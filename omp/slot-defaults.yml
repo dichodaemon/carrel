@@ -40,3 +40,7 @@ contributions:
   - slot: generate-glossary
     entries:
       - skill:generate-glossary
+
+  - slot: execute-plan
+    entries:
+      - skill:execute-plan
