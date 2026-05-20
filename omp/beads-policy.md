@@ -59,7 +59,7 @@ For batch creation (more than a handful of issues), use `bd create --graph <plan
 - **`key`** (required): local reference for wiring edges. Not the final bead ID — beads assigns IDs on creation and prints the mapping (`key -> bead-id`).
 - **`type`** on nodes: `task`, `bug`, `feature`, `epic`, `chore`, `decision`.
 - **`type`** on edges: `blocks`, `parent-child`, `discovered-from`, `related`.
-- **`from_key`/`to_key`**: reference node keys within the same graph. `from_key` is the dependent; `to_key` is the dependency (same direction as `bd dep add <from> <to>`).
+- **`from_key`/`to_key`**: reference node keys within the same graph. `from_key` is the dependent; `to_key` is the dependency (same direction as `bd dep add <from> <to>`). For `parent-child`, this means the **child** is `from_key` and the **parent** is `to_key` — the child depends on the parent, not the other way around.
 - Edge semantics match the Dependencies table below.
 - `--dry-run` is broken (creates real issues despite the flag). Validate your JSON structure before running.
 
