@@ -184,7 +184,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 ARG BUN_VERSION=1.3.14
 RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash -s "bun-v${BUN_VERSION}"
 
-ARG OMP_VERSION=14.2.1
+ARG OMP_VERSION=15.7.3
 RUN BUN_INSTALL=/usr/local bun install -g @oh-my-pi/pi-coding-agent@${OMP_VERSION}
 
 # Carrel build environment (binary built at container startup via entrypoint)
