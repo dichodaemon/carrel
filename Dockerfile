@@ -181,7 +181,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 
 # Layer 4: Source builds (bun + OMP)
 
-ARG BUN_VERSION=1.3.11
+ARG BUN_VERSION=1.3.14
 RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash -s "bun-v${BUN_VERSION}"
 
 ARG OMP_VERSION=14.2.1
