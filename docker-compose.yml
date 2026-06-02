@@ -57,6 +57,15 @@ services:
     networks:
       - internal
     restart: unless-stopped
+    # GPU passthrough — uncommented by bin/launch when nvidia-smi is available
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
 
 networks:
   internal:

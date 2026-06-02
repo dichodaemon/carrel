@@ -61,20 +61,24 @@ ENVEOF
     fi
 fi
 
-# Source .env so shell can use the variables
+# Source .env so shell can use the variables (skip UID/GID — readonly in bash)
 set -a
-source .env
+source <(grep -v '^UID=\|^GID=' .env)
 set +a
 
 # GPU detection for Ollama
 if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null 2>&1; then
     echo "GPU detected — enabling GPU passthrough for Ollama"
-    # Uncomment GPU deploy block if present
-    if grep -q '^#.*driver: nvidia' docker-compose.yml 2>/dev/null; then
-        sed -i 's/^#      - driver: nvidia/      - driver: nvidia/' docker-compose.yml
-        sed -i 's/^#        count: 1/        count: 1/' docker-compose.yml
-        sed -i 's/^#        capabilities: \[gpu\]/        capabilities: \[gpu\]/' docker-compose.yml
+    # Uncomment GPU deploy block (lines marked with #GPU prefix)
+    if grep -q '^    #GPU ' docker-compose.yml 2>/dev/null; then
+        sed -i 's/^    #GPU /    /' docker-compose.yml
         echo "GPU passthrough enabled in docker-compose.yml"
+    fi
+    # Verify nvidia-container-toolkit is fully configured
+    if ! grep -q 'nvidia.com/gpu' /etc/cdi/nvidia.yaml 2>/dev/null; then
+        echo "Warning: nvidia-container-toolkit CDI specs missing."
+        echo "  Run: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+        echo "  GPU devices will not be available inside containers until CDI specs are generated."
     fi
 else
     echo "No GPU detected (nvidia-smi not found or no NVIDIA GPU) — Ollama will use CPU inference"
@@ -96,25 +100,33 @@ fi
 # Model auto-pull for Ollama
 MODEL="${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}"
 echo "Checking if Ollama model $MODEL is available..."
-if docker compose exec -T ollama ollama list 2>/dev/null | grep -qF "$MODEL"; then
+if curl -sf http://localhost:${OLLAMA_PORT:-11434}/api/tags 2>/dev/null | grep -qF "\"$MODEL\""; then
     echo "Model $MODEL already cached."
 else
     echo "Pulling model $MODEL (this may take a few minutes)..."
-    docker compose exec -T ollama ollama pull "$MODEL"
+    if docker compose exec -T ollama ollama pull "$MODEL" 2>/dev/null; then
+        echo "Model $MODEL pulled successfully."
+        # Restart Hindsight to retry LLM connection verification with the now-available model
+        echo "Restarting Hindsight to verify LLM connection..."
+        docker compose restart hindsight 2>/dev/null || true
+    else
+        echo "Warning: failed to pull model $MODEL"
+    fi
 fi
 
 # Validation: verify Hindsight is reachable from carrel
 echo "Verifying Hindsight is reachable..."
-if docker compose exec -T carrel curl -sf http://hindsight:8888/v1/health > /dev/null 2>&1; then
-    echo "Hindsight is reachable at http://hindsight:8888"
+if docker compose exec -T carrel curl -sf http://hindsight:8888/health > /dev/null 2>&1; then
+    echo "Hindsight API is reachable from carrel at http://hindsight:8888"
 else
     echo "Warning: Hindsight API is not reachable at http://hindsight:8888"
     echo "  Check: docker compose logs hindsight"
 fi
 
 # Validation: verify Hindsight dashboard is accessible from host
-if curl -sf http://localhost:${HINDSIGHT_PORT:-8888}/v1/health > /dev/null 2>&1; then
-    echo "Hindsight dashboard accessible at http://localhost:${HINDSIGHT_PORT:-8888}"
+HINDSIGHT_PORT_VAL="${HINDSIGHT_PORT:-8888}"
+if curl -sf http://localhost:${HINDSIGHT_PORT_VAL}/health > /dev/null 2>&1; then
+    echo "Hindsight API accessible from host at http://localhost:${HINDSIGHT_PORT_VAL}"
 else
-    echo "Note: Hindsight dashboard not yet reachable from host (may need a moment to start)"
+    echo "Note: Hindsight API not yet reachable from host (may need a moment to start)"
 fi
