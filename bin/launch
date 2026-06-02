@@ -25,6 +25,23 @@ if [[ ! -f .env ]]; then
     echo "  GID=$MY_GID"
     echo "  COMPOSE_PROJECT_NAME=carrel"
     echo ""
+
+    # Hindsight model prompt
+    echo "Hindsight memory backend: choose Gemma 4 model"
+    echo "  gemma4:e2b  — 2B, fits any GPU or CPU"
+    echo "  gemma4:e4b  — 4B, needs GTX 1660 Ti 6GB+"
+    echo "  gemma4:26b  — 26B MoE, needs 16GB+ VRAM"
+    echo "  gemma4:31b  — 31B, needs 24GB+ VRAM"
+    read -p "Model [gemma4:e4b]: " HINDSIGHT_OLLAMA_MODEL
+    HINDSIGHT_OLLAMA_MODEL="${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}"
+
+    read -p "Hindsight port [8888]: " HINDSIGHT_PORT
+    HINDSIGHT_PORT="${HINDSIGHT_PORT:-8888}"
+
+    read -p "Ollama port [11434]: " OLLAMA_PORT
+    OLLAMA_PORT="${OLLAMA_PORT:-11434}"
+
+    echo ""
     read -p "Create .env with these values? [Y/n] " -r REPLY
     echo ""
     if [[ "$REPLY" =~ ^[Yy]?$ ]]; then
@@ -33,6 +50,9 @@ WORKSPACE=$WORKSPACE
 UID=$MY_UID
 GID=$MY_GID
 COMPOSE_PROJECT_NAME=carrel
+HINDSIGHT_OLLAMA_MODEL=$HINDSIGHT_OLLAMA_MODEL
+HINDSIGHT_PORT=$HINDSIGHT_PORT
+OLLAMA_PORT=$OLLAMA_PORT
 ENVEOF
         echo ".env created."
     else
@@ -41,6 +61,29 @@ ENVEOF
     fi
 fi
 
+# Source .env so shell can use the variables
+set -a
+source .env
+set +a
+
+# GPU detection for Ollama
+if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null 2>&1; then
+    echo "GPU detected — enabling GPU passthrough for Ollama"
+    # Uncomment GPU deploy block if present
+    if grep -q '^#.*driver: nvidia' docker-compose.yml 2>/dev/null; then
+        sed -i 's/^#      - driver: nvidia/      - driver: nvidia/' docker-compose.yml
+        sed -i 's/^#        count: 1/        count: 1/' docker-compose.yml
+        sed -i 's/^#        capabilities: \[gpu\]/        capabilities: \[gpu\]/' docker-compose.yml
+        echo "GPU passthrough enabled in docker-compose.yml"
+    fi
+else
+    echo "No GPU detected (nvidia-smi not found or no NVIDIA GPU) — Ollama will use CPU inference"
+    if [[ "${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}" == "gemma4:e4b" ]]; then
+        echo "Warning: gemma4:e4b on CPU will be slow. Consider gemma4:e2b instead."
+    fi
+fi
+
+# Bring containers up
 if docker compose version &>/dev/null; then
 	docker compose up -d --build
 elif command -v docker-compose &>/dev/null; then
@@ -48,4 +91,30 @@ elif command -v docker-compose &>/dev/null; then
 else
 	echo "Error: neither docker compose nor docker-compose found" >&2
 	exit 1
+fi
+
+# Model auto-pull for Ollama
+MODEL="${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}"
+echo "Checking if Ollama model $MODEL is available..."
+if docker compose exec -T ollama ollama list 2>/dev/null | grep -qF "$MODEL"; then
+    echo "Model $MODEL already cached."
+else
+    echo "Pulling model $MODEL (this may take a few minutes)..."
+    docker compose exec -T ollama ollama pull "$MODEL"
+fi
+
+# Validation: verify Hindsight is reachable from carrel
+echo "Verifying Hindsight is reachable..."
+if docker compose exec -T carrel curl -sf http://hindsight:8888/v1/health > /dev/null 2>&1; then
+    echo "Hindsight is reachable at http://hindsight:8888"
+else
+    echo "Warning: Hindsight API is not reachable at http://hindsight:8888"
+    echo "  Check: docker compose logs hindsight"
+fi
+
+# Validation: verify Hindsight dashboard is accessible from host
+if curl -sf http://localhost:${HINDSIGHT_PORT:-8888}/v1/health > /dev/null 2>&1; then
+    echo "Hindsight dashboard accessible at http://localhost:${HINDSIGHT_PORT:-8888}"
+else
+    echo "Note: Hindsight dashboard not yet reachable from host (may need a moment to start)"
 fi
