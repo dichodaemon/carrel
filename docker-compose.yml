@@ -37,7 +37,8 @@ services:
     volumes:
       - hindsight-data:/home/hindsight/.pg0
     ports:
-      - "${HINDSIGHT_PORT:-8888}:8888"
+      - "${HINDSIGHT_PORT:-8800}:8888"
+      - "${HINDSIGHT_CP_PORT:-9999}:9999"
     environment:
       HINDSIGHT_API_LLM_PROVIDER: ollama
       HINDSIGHT_API_LLM_BASE_URL: http://ollama:11434/v1
