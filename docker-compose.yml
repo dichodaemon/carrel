@@ -7,6 +7,8 @@ services:
       CONTAINERS: 1
       EXEC: 1
       POST: 1
+      IMAGES: 1
+      BUILD: 1
     networks:
       - internal
     restart: unless-stopped
@@ -24,11 +26,43 @@ services:
     environment:
       DOCKER_HOST: tcp://socket-proxy:2375
       HOME: /home/dev
+      HINDSIGHT_API_URL: http://hindsight:8888
     networks:
       - internal
     restart: unless-stopped
     command: ["sleep", "infinity"]
 
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    container_name: hindsight
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+    ports:
+      - "${HINDSIGHT_PORT:-8888}:8888"
+    environment:
+      HINDSIGHT_API_LLM_PROVIDER: ollama
+      HINDSIGHT_API_LLM_BASE_URL: http://ollama:11434/v1
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}
+      HINDSIGHT_API_WORKER_ID: hindsight-carrel
+    networks:
+      - internal
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    networks:
+      - internal
+    restart: unless-stopped
+
 networks:
   internal:
     driver: bridge
+
+volumes:
+  hindsight-data:
+  ollama-data:
