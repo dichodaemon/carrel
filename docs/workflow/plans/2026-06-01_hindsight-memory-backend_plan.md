@@ -1,6 +1,6 @@
 ---
 title: Hindsight Memory Backend -- Implementation Plan
-status: approved
+status: issued
 date: 2026-06-01
 author: Dizan Vasquez
 spec: ../briefs/2026-06-01_hindsight-memory-backend_brief.md
