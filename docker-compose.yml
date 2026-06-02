@@ -19,20 +19,18 @@ services:
     user: "${UID}:${GID}"
     volumes:
       - ${WORKSPACE}:/workspace
-      - /var/run/docker.sock:/var/run/docker.sock
       - ~/.ssh:/home/dev/.ssh:ro
       - ~/.gitconfig:/home/dev/.gitconfig:ro
       - ~/.config/gh:/home/dev/.config/gh
       - ~/.config/doc-fetch:/home/dev/.config/doc-fetch:ro
     environment:
-      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_HOST: tcp://socket-proxy:2375
       HOME: /home/dev
       HINDSIGHT_API_URL: http://hindsight:8888
     networks:
       - internal
     restart: unless-stopped
     command: ["sleep", "infinity"]
-
   hindsight:
     image: ghcr.io/vectorize-io/hindsight:latest
     container_name: hindsight
