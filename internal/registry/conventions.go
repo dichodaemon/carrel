@@ -101,6 +101,11 @@ var Conventions = map[CapabilityType]Convention{
 		IsSingleton:      true,
 		SingletonName:    "p10k.zsh",
 	},
+	TypeHelixConfig: {
+		Dir:              "config/helix",
+		FileName:         func(name string) string { return name + ".toml" },
+		DefaultPrimitive: PrimitiveOverride,
+	},
 }
 
 // RelativePath returns the conventional relative path for an entry

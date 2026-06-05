@@ -207,7 +207,7 @@ func osSetupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "os-setup",
 		Short: "Deploy OS tool configuration in container",
-		Long:  "Resolves the container consumer, composes OS configuration (zsh, nvim, wezterm), and deploys to OS paths under /home/dev.",
+		Long:  "Resolves the container consumer, composes OS configuration (zsh, nvim, wezterm, helix), and deploys to OS paths under /home/dev.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reg := mustOpenRegistry()
 			defer reg.Close()

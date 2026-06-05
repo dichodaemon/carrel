@@ -73,6 +73,8 @@ func TypeName(s string) (CapabilityType, bool) {
 		return TypeNvimConfig, true
 	case "wezterm":
 		return TypeWeztermConfig, true
+	case "helix":
+		return TypeHelixConfig, true
 	case "p10k":
 		return TypeP10kConfig, true
 	default:
@@ -150,6 +152,7 @@ func GenerateSlotsFile(reg Registry, consumerAlias string) (*SlotsFile, error) {
 		TypeZshConfig:      "zsh",
 		TypeNvimConfig:     "nvim",
 		TypeWeztermConfig:  "wezterm",
+		TypeHelixConfig:    "helix",
 		TypeP10kConfig:     "p10k",
 	}
 	composeModeNames := map[ComposeMode]string{
@@ -405,5 +408,6 @@ var typeToName = map[CapabilityType]string{
 	TypeZshConfig:     "zsh",
 	TypeNvimConfig:    "nvim",
 	TypeWeztermConfig: "wezterm",
+	TypeHelixConfig:    "helix",
 	TypeP10kConfig:    "p10k",
 }

@@ -23,6 +23,7 @@ func TestConventionsCoverAllTypes(t *testing.T) {
 		registry.TypeNvimConfig,
 		registry.TypeWeztermConfig,
 		registry.TypeP10kConfig,
+		registry.TypeHelixConfig,
 	}
 
 	for _, typ := range types {
@@ -53,6 +54,7 @@ func TestRelativePath(t *testing.T) {
 		{registry.TypeZshConfig, "zshrc", "config/zsh/zshrc.zsh"},
 		{registry.TypeNvimConfig, "init", "config/nvim/init.lua"},
 		{registry.TypeWeztermConfig, "mux-server", "config/wezterm/mux-server.lua"},
+		{registry.TypeHelixConfig, "config", "config/helix/config.toml"},
 		{registry.TypeP10kConfig, "p10k.zsh", "config/zsh/p10k.zsh"},
 	}
 

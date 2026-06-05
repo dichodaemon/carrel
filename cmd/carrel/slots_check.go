@@ -44,6 +44,7 @@ func checkSlotsConsistency(reg registry.Registry, consumerAlias string) []string
 		registry.TypeNvimConfig:    "nvim",
 		registry.TypeWeztermConfig: "wezterm",
 		registry.TypeP10kConfig:    "p10k",
+		registry.TypeHelixConfig:   "helix",
 	}
 
 	sources, _ := reg.ListSources()

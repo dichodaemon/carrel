@@ -223,7 +223,7 @@ func generateDefaultSlots(reg registry.Registry, c registry.Consumer) error {
 
 func isOSType(typ registry.CapabilityType) bool {
 	switch typ {
-	case registry.TypeZshConfig, registry.TypeNvimConfig, registry.TypeWeztermConfig, registry.TypeP10kConfig:
+	case registry.TypeZshConfig, registry.TypeNvimConfig, registry.TypeWeztermConfig, registry.TypeP10kConfig, registry.TypeHelixConfig:
 		return true
 	}
 	return false
@@ -239,6 +239,8 @@ func osDestPath(typ registry.CapabilityType, name string) string {
 		return ".config/wezterm/" + name + ".lua"
 	case registry.TypeP10kConfig:
 		return ".p10k.zsh"
+	case registry.TypeHelixConfig:
+		return ".config/helix/" + name + ".toml"
 	}
 	return name
 }

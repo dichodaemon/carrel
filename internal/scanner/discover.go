@@ -271,6 +271,7 @@ func convTypeName(typ registry.CapabilityType) string {
 	case registry.TypeZshConfig:     return "zsh"
 	case registry.TypeNvimConfig:    return "nvim"
 	case registry.TypeWeztermConfig: return "wezterm"
+	case registry.TypeHelixConfig:    return "helix"
 	case registry.TypeP10kConfig:    return "p10k"
 	}
 	return fmt.Sprintf("type-%d", typ)

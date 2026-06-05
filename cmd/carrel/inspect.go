@@ -154,6 +154,7 @@ func typeNameStr(typ registry.CapabilityType) string {
 		registry.TypeNvimConfig:    "nvim",
 		registry.TypeWeztermConfig: "wezterm",
 		registry.TypeP10kConfig:    "p10k",
+		registry.TypeHelixConfig:   "helix",
 	}
 	if n, ok := names[typ]; ok {
 		return n

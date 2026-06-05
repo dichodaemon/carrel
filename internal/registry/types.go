@@ -71,6 +71,7 @@ const (
 	TypeNvimConfig
 	TypeWeztermConfig
 	TypeP10kConfig
+	TypeHelixConfig
 )
 
 // Primitive defines the composition operation.

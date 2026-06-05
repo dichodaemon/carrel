@@ -152,6 +152,18 @@ RUN curl -fsSL "https://github.com/Dicklesworthstone/beads_viewer/releases/downl
     && cp /tmp/bv_${BV_VERSION}_linux_amd64/bv /usr/local/bin/bv \
     && rm -rf /tmp/bv.tar.gz /tmp/bv_${BV_VERSION}_linux_amd64
 
+# helix
+ARG HELIX_VERSION=25.07.1
+ARG HELIX_CHECKSUM=3f08e63ecd388fff657ad39722f88bb03dcf326f1f2da2700d99e1dc40ab2e8b
+RUN curl -fsSL "https://github.com/helix-editor/helix/releases/download/${HELIX_VERSION}/helix-${HELIX_VERSION}-x86_64-linux.tar.xz" \
+        -o /tmp/helix.tar.xz \
+    && echo "${HELIX_CHECKSUM}  /tmp/helix.tar.xz" | sha256sum -c - \
+    && tar -xJf /tmp/helix.tar.xz -C /tmp \
+    && cp /tmp/helix-${HELIX_VERSION}-x86_64-linux/hx /usr/local/bin/hx \
+    && mkdir -p /usr/local/share/helix \
+    && cp -r /tmp/helix-${HELIX_VERSION}-x86_64-linux/runtime /usr/local/share/helix/runtime \
+    && rm -rf /tmp/helix.tar.xz /tmp/helix-${HELIX_VERSION}-x86_64-linux
+
 # Go toolchain (for carrel build)
 ARG GO_VERSION=1.26.2
 ARG GO_CHECKSUM=990e6b4bbba816dc3ee129eaeaf4b42f17c2800b88a2166c265ac1a200262282
@@ -175,6 +187,7 @@ RUN pip3 install --break-system-packages pyright==${PYRIGHT_VERSION} \
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:/usr/local/go/bin:/home/dev/go/bin:${PATH}
+ENV HELIX_RUNTIME=/usr/local/share/helix/runtime
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --no-modify-path --default-toolchain stable --profile minimal \
     && chmod -R a+w /usr/local/rustup /usr/local/cargo
@@ -205,6 +218,8 @@ COPY --chown=dev:dev omp/config/zsh/zprofile.zsh /home/dev/.zprofile
 COPY --chown=dev:dev omp/config/nvim/init.lua /home/dev/.config/nvim/init.lua
 COPY --chown=dev:dev omp/config/wezterm/wezterm.lua /home/dev/.config/wezterm/wezterm.lua
 COPY --chown=dev:dev omp/config/wezterm/mux-server.lua /home/dev/.config/wezterm/wezterm.lua
+
+COPY --chown=dev:dev omp/config/helix/config.toml /home/dev/.config/helix/config.toml
 
 # Install powerlevel10k
 RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /opt/powerlevel10k \

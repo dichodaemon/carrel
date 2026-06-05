@@ -32,6 +32,7 @@ var capabilityTypes = []struct {
 	{"nvim", registry.TypeNvimConfig},
 	{"wezterm", registry.TypeWeztermConfig},
 	{"p10k", registry.TypeP10kConfig},
+	{"helix", registry.TypeHelixConfig},
 }
 
 

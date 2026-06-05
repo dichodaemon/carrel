@@ -233,6 +233,7 @@ var typeToName = map[registry.CapabilityType]string{
 	registry.TypeZshConfig:     "zsh",
 	registry.TypeNvimConfig:    "nvim",
 	registry.TypeWeztermConfig: "wezterm",
+	registry.TypeHelixConfig:    "helix",
 	registry.TypeP10kConfig:    "p10k",
 }
 

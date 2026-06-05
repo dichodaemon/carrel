@@ -24,7 +24,7 @@ table.insert(hyperlink_rules, {
   format = 'https://$1',
 })
 
--- code files → bat viewer (CTRL+click) or nvim editor (CTRL+ALT+click)
+-- code files → bat viewer (CTRL+click) or helix editor (CTRL+ALT+click)
 -- The lookahead (?=[^a-zA-Z0-9]|$) prevents matching extensions embedded inside
 -- longer words, e.g. www.example.c would match .c but the 'o' in 'om' stops it.
 table.insert(hyperlink_rules, {
@@ -47,7 +47,7 @@ end
 local markless_pane_by_tab = {}
 local bat_pane_by_tab = {}
 
--- Flag: next bat:// open-uri should go to nvim instead (set by CTRL+ALT+click)
+-- Flag: next bat:// open-uri should go to helix instead (set by CTRL+ALT+click)
 local open_in_editor = false
 wez.on('open-uri-editor-mode', function() open_in_editor = true end)
 
@@ -67,7 +67,7 @@ wez.on('open-uri', function(window, pane, uri)
 
   local ok, err = pcall(function()
 
-    -- bat:// — view in bat (CTRL+click) or edit in nvim (CTRL+ALT+click)
+    -- bat:// — view in bat (CTRL+click) or edit in helix (CTRL+ALT+click)
     if uri:match('^bat://') then
       local path = uri:gsub('^bat://', '')
 
@@ -88,22 +88,42 @@ wez.on('open-uri', function(window, pane, uri)
       end
 
       if editor_mode then
-        -- CTRL+ALT+click: send to nvim pane
-        local nvim_pane
+        -- CTRL+ALT+click: open in helix pane (reuse or split)
+        local hx_pane
         for _, p in ipairs(pane:tab():panes()) do
-          if (p:get_foreground_process_name() or ''):match('[nv]im') then
-            nvim_pane = p
+          local fg = (p:get_foreground_process_name() or ''):lower()
+          local title = (p:get_title() or ''):lower()
+          if fg:match('hx') or fg:match('helix') or title:match('hx') or title:match('helix') then
+            hx_pane = p
             break
           end
         end
-        if nvim_pane then
-          local cmd = line
-            and ('\x1b:e +' .. line .. ' ' .. filepath .. '\r')
-            or  ('\x1b:e ' .. filepath .. '\r')
-          nvim_pane:send_text(cmd)
-          nvim_pane:activate()
+
+        local hx_cmd = line
+          and ('hx ' .. filepath .. ':' .. line .. '\r')
+          or  ('hx ' .. filepath .. '\r')
+
+        if hx_pane then
+          -- ESC first (exit insert mode), then :open after a short delay.
+          -- Sending them together trips bracketed-paste, which eats the 'o' in ':open'.
+          hx_pane:send_text('\x1b')
+          wez.time.call_after(0.05, function()
+            hx_pane:send_text(':open ' .. filepath .. (line and (':' .. line) or '') .. '\r')
+          end)
+          hx_pane:activate()
         else
-          notify(window, 'WezTerm: no nvim open in current tab')
+          -- No helix pane: split a new one vertically and start hx
+          window:perform_action(
+            wez.action.SplitPane {
+              direction = 'Right',
+              size = { Percent = 40 },
+              command = { domain = 'CurrentPaneDomain' },
+            },
+            pane
+          )
+          wez.time.call_after(0.1, function()
+            window:active_pane():send_text(hx_cmd)
+          end)
         end
         return
       end
@@ -212,8 +232,14 @@ end)
 -- gui-startup
 -------------------------------------------------------------------------------
 wez.on('gui-startup', function()
-  -- Start the mux daemon if not already running, then connect to it
-  wez.background_child_process{ 'wezterm', 'start', '--daemonize' }
+  -- Only start the mux daemon if the unix socket doesn't already exist
+  local sock = (os.getenv('XDG_RUNTIME_DIR') or '/tmp') .. '/wezterm/sock'
+  local f = io.open(sock, 'r')
+  if not f then
+    wez.background_child_process{ 'wezterm', 'start', '--daemonize' }
+  else
+    f:close()
+  end
 end)
 
 local config = {
@@ -282,7 +308,7 @@ local config = {
       mods = 'CTRL',
       action = wez.action.OpenLinkAtMouseCursor,
     },
-    -- CTRL+ALT+click → nvim editor
+    -- CTRL+ALT+click → helix editor
     -- Down sets the flag; Up fires OpenLinkAtMouseCursor (open-uri reads the flag)
     {
       event = { Down = { streak = 1, button = 'Left' } },
@@ -301,6 +327,7 @@ local config = {
   enable_kitty_graphics = true,
 
   unix_domains = {
+    { name = 'unix' },
     {
       name = 'carrel',
       proxy_command = { 'ssh', '-T', '<user>@<host-address>', '/home/<user>/code/carrel/bin/proxy' },
