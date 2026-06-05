@@ -28,7 +28,7 @@ table.insert(hyperlink_rules, {
 -- The lookahead (?=[^a-zA-Z0-9]|$) prevents matching extensions embedded inside
 -- longer words, e.g. www.example.c would match .c but the 'o' in 'om' stops it.
 table.insert(hyperlink_rules, {
-  regex = [=[([^\s"'<>]+\.(py|cpp|cc|c|hh|h|lua|rs|go|js|ts|jsx|tsx|json|yaml|yml|toml|sh|rb|java|kt|vim|css|html|xml|txt|cu|proto|bzl))(:\d+)?(:\d+)?(?=[^a-zA-Z0-9]|$)]=],
+  regex = [=[([^\s"'<>]+\.(R|Rmd|S|asm|bash|bat|bazel|bzl|c|capnp|cc|cfg|cjs|cl|clj|cljc|cljs|cmake|cmd|comp|conf|containerfile|cpp|cr|cs|css|csv|csx|cts|cu|cue|cuh|cxx|dart|db|desktop|dhall|diff|dockerfile|dot|dsql|edn|eex|elm|env|erb|erl|ex|exs|f|f03|f90|f95|feature|fish|for|frag|fs|fsi|fsscript|fsx|gemspec|geom|gleam|glsl|go|gql|gradle|graphql|groovy|h|h++|hcl|heex|hh|hpp|hrl|hs|htm|html|hxx|inc|ini|inl|ipy|jav|java|jinja|jinja2|jl|js|json|json5|jsonc|jsonl|jsonnet|jsx|just|ksh|kt|kts|less|lhs|libsonnet|log|lua|luau|mak|make|markdown|md|mdx|mjs|mk|ml|mli|mount|mts|nim|nimble|nims|nix|njk|odin|org|pas|patch|php|php3|php4|php5|phtml|pkl|pl|ply|pm|pp|prisma|proto|prql|ps1|psd1|psm1|pug|pxd|pxi|py|py3|pyi|pyt|pyw|pyx|r|rake|rb|rbi|regex|rmd|robot|rs|rst|ru|s|sass|sbt|sc|scala|scss|service|sh|shtml|smali|smithy|socket|sol|sql|sqlite3|sv|svg|svh|swift|target|task|tcl|tesc|tese|tex|tf|tfvars|thrift|timer|toml|ts|tsx|twig|txt|typ|v|vala|vert|vhd|vhdl|vim|vsh|vv|wgsl|xaml|xhtml|xml|yaml|yara|yml|zig|zon|zsh))(:\d+)?(:\d+)?(?=[^a-zA-Z0-9]|$)]=],
   format = 'bat://$0',
 })
 
