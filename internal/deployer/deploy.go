@@ -99,6 +99,15 @@ func Deploy(
 			continue
 		}
 
+		// If not claimed by a previous deployment record, but the on-disk
+		// content matches what we are about to deploy, silently reclaim it.
+		// This recovers from interrupted prior deployments where files were
+		// written but the success record was never persisted.
+		if !isClaimed && existingHash == f.ContentHash {
+			ops = append(ops, writeOp{file: f, action: ActionReplaced})
+			continue
+		}
+
 		// Foreign or tampered.
 		action := resolveConflict(policy)
 		collisions = append(collisions, CollisionResult{
