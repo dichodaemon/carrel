@@ -192,6 +192,11 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --no-modify-path --default-toolchain stable --profile minimal \
     && chmod -R a+w /usr/local/rustup /usr/local/cargo
 
+# wezterm terminfo — needed by hx, nvim, etc. when TERM=wezterm
+COPY omp/config/wezterm/wezterm.terminfo /tmp/wezterm.terminfo
+RUN tic -x -o /usr/share/terminfo /tmp/wezterm.terminfo \
+    && rm /tmp/wezterm.terminfo
+
 # Layer 4: Source builds (bun + OMP)
 
 ARG BUN_VERSION=1.3.14
