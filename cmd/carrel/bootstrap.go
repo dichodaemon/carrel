@@ -121,14 +121,18 @@ func runBootstrap(cmd *cobra.Command, args []string) error {
 	hostC, _ := reg.ResolveConsumer("host")
 	for _, c := range []registry.Consumer{carrelC, folioC, containerC, hostC} {
 		slotsPath := filepath.Join(c.Path, ".carrel", "slots.yml")
-		warnings, err := registry.ApplySlotsFile(reg, c, slotsPath)
-		if err == nil && warnings == nil || (err == nil && len(warnings) > 0) {
-			// File existed and was applied (with or without warnings)
+		_, statErr := os.Stat(slotsPath)
+		if statErr == nil {
+			// File exists — apply it
+			warnings, err := registry.ApplySlotsFile(reg, c, slotsPath)
+			if err != nil {
+				fmt.Printf("  bootstrap: slots error for %s: %v\n", c.Alias, err)
+			}
 			for _, w := range warnings {
 				fmt.Printf("  bootstrap: slots warning for %s: %s\n", c.Alias, w)
 			}
 		} else {
-			// File doesn't exist or couldn't be read — fall back to convention
+			// No slots file — generate from convention
 			if err := generateDefaultSlots(reg, c); err != nil {
 				fmt.Printf("  bootstrap: slots for %s: %v\n", c.Alias, err)
 			}
