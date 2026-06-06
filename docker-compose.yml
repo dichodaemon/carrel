@@ -27,6 +27,7 @@ services:
       DOCKER_HOST: tcp://socket-proxy:2375
       HOME: /home/dev
       HINDSIGHT_API_URL: http://hindsight:8888
+      DOCKER_STACK_DIR: /workspace/core-stack
     networks:
       - internal
     restart: unless-stopped

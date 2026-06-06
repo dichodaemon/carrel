@@ -232,13 +232,22 @@ end)
 -- gui-startup
 -------------------------------------------------------------------------------
 wez.on('gui-startup', function()
-  -- Only start the mux daemon if the unix socket doesn't already exist
+  -- Reuse the existing mux daemon if the socket exists and is responsive.
+  -- If the socket exists but the mux is frozen (e.g. from stuck git hook
+  -- processes), spawn a fresh daemon so the new window isn't blocked.
   local sock = (os.getenv('XDG_RUNTIME_DIR') or '/tmp') .. '/wezterm/sock'
   local f = io.open(sock, 'r')
   if not f then
     wez.background_child_process{ 'wezterm', 'start', '--daemonize' }
   else
     f:close()
+    -- Probe the mux with a short-timeout list call. A healthy mux responds
+    -- in milliseconds; a frozen one never does. `timeout` enforces the cap
+    -- so gui-startup never hangs waiting for a stuck mux.
+    local ok = wez.run_child_process{ 'timeout', '2', 'wezterm', 'cli', 'list' }
+    if not ok then
+      wez.background_child_process{ 'wezterm', 'start', '--daemonize' }
+    end
   end
 end)
 
