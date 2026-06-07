@@ -25,11 +25,11 @@ table.insert(hyperlink_rules, {
 })
 
 -- code files → bat viewer (CTRL+click) or helix editor (CTRL+ALT+click)
--- No lookahead boundary check: [^\s"'<>]+ already stops at whitespace/quotes/brackets,
--- and the (:\d+)? optional suffix naturally delimits the extension.  Keeping the
--- regex free of lookahead/lookbehind lets WezTerm use the fast DFA engine.
+-- Requires '/' in the matched token: this prunes commit hashes, tags, and
+-- other dot-dense non-path tokens before the extension alternation is tried,
+-- keeping the DFA state space low on git push/commit output.
 table.insert(hyperlink_rules, {
-  regex = [=[([^\s"'<>]+\.(R|Rmd|S|asm|bash|bat|bazel|bzl|c|capnp|cc|cfg|cjs|cl|clj|cljc|cljs|cmake|cmd|comp|conf|containerfile|cpp|cr|cs|css|csv|csx|cts|cu|cue|cuh|cxx|dart|db|desktop|dhall|diff|dockerfile|dot|dsql|edn|eex|elm|env|erb|erl|ex|exs|f|f03|f90|f95|feature|fish|for|frag|fs|fsi|fsscript|fsx|gemspec|geom|gleam|glsl|go|gql|gradle|graphql|groovy|h|h++|hcl|heex|hh|hpp|hrl|hs|htm|html|hxx|inc|ini|inl|ipy|jav|java|jinja|jinja2|jl|js|json|json5|jsonc|jsonl|jsonnet|jsx|just|ksh|kt|kts|less|lhs|libsonnet|log|lua|luau|mak|make|markdown|md|mdx|mjs|mk|ml|mli|mount|mts|nim|nimble|nims|nix|njk|odin|org|pas|patch|php|php3|php4|php5|phtml|pkl|pl|ply|pm|pp|prisma|proto|prql|ps1|psd1|psm1|pug|pxd|pxi|py|py3|pyi|pyt|pyw|pyx|r|rake|rb|rbi|regex|rmd|robot|rs|rst|ru|s|sass|sbt|sc|scala|scss|service|sh|shtml|smali|smithy|socket|sol|sql|sqlite3|sv|svg|svh|swift|target|task|tcl|tesc|tese|tex|tf|tfvars|thrift|timer|toml|ts|tsx|twig|txt|typ|v|vala|vert|vhd|vhdl|vim|vsh|vv|wgsl|xaml|xhtml|xml|yaml|yara|yml|zig|zon|zsh))(:\d+)?(:\d+)?]=],
+  regex = [=[([^\s"'<>]*/[^\s"'<>]*\.(R|Rmd|S|asm|bash|bat|bazel|bzl|c|capnp|cc|cfg|cjs|cl|clj|cljc|cljs|cmake|cmd|comp|conf|containerfile|cpp|cr|cs|css|csv|csx|cts|cu|cue|cuh|cxx|dart|db|desktop|dhall|diff|dockerfile|dot|dsql|edn|eex|elm|env|erb|erl|ex|exs|f|f03|f90|f95|feature|fish|for|frag|fs|fsi|fsscript|fsx|gemspec|geom|gleam|glsl|go|gql|gradle|graphql|groovy|h|h++|hcl|heex|hh|hpp|hrl|hs|htm|html|hxx|inc|ini|inl|ipy|jav|java|jinja|jinja2|jl|js|json|json5|jsonc|jsonl|jsonnet|jsx|just|ksh|kt|kts|less|lhs|libsonnet|log|lua|luau|mak|make|markdown|md|mdx|mjs|mk|ml|mli|mount|mts|nim|nimble|nims|nix|njk|odin|org|pas|patch|php|php3|php4|php5|phtml|pkl|pl|ply|pm|pp|prisma|proto|prql|ps1|psd1|psm1|pug|pxd|pxi|py|py3|pyi|pyt|pyw|pyx|r|rake|rb|rbi|regex|rmd|robot|rs|rst|ru|s|sass|sbt|sc|scala|scss|service|sh|shtml|smali|smithy|socket|sol|sql|sqlite3|sv|svg|svh|swift|target|task|tcl|tesc|tese|tex|tf|tfvars|thrift|timer|toml|ts|tsx|twig|txt|typ|v|vala|vert|vhd|vhdl|vim|vsh|vv|wgsl|xaml|xhtml|xml|yaml|yara|yml|zig|zon|zsh))(:\d+)?(:\d+)?]=],
   format = 'bat://$0',
 })
 
