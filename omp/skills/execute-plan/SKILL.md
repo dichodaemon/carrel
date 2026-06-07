@@ -90,6 +90,12 @@ Generate a `bd create --graph` JSON with:
   `blocks` edges between phases per the plan's phase dependency declarations.
 - **1 task per plan task**: `parent-child` to its phase epic. `blocks` edges
   per the plan's solution breakdown dependencies.
+- **Verification gates**: Tasks whose title starts with "Verify:" are
+  **phase gates**. Add a `blocks` edge from the phase epic to each of its
+  verification tasks (the phase epic is blocked by the verification task).
+  The phase epic cannot be closed until every verification task in it
+  passes. Because the next phase's epic is blocked by this phase's epic,
+  non-passing verification transitively blocks all subsequent phases.
 
 Every task description **MUST** include:
 
@@ -151,10 +157,26 @@ After creation, transition the plan's `status` field from `approved` to
 
 ### Phase gates
 
-At each phase boundary (all non-blocked tasks in a phase epic closed), run
-the phase's gate task if one exists (e.g., "full build and test suite").
-Close the phase epic only after its gate task passes. Close the master epic
-only after all phase epics are closed.
+At each phase boundary (all non-gate tasks in a phase closed), run the
+phase's verification tasks ("Verify:" tasks). Every verification task
+**MUST** pass before the phase epic can be closed. If a verification
+task fails:
+
+1. **Halt.** Do not proceed to the next phase. Do not work around the
+   failure by closing the phase epic without a passing gate.
+2. **Diagnose** the failure within the current phase's scope.
+3. **Fix** the issue — re-open a completed task if needed, or create a
+   `discovered-from` bead for unplanned remediation work.
+4. **Re-run** the verification task until it passes.
+5. **Close** the verification task, then close the phase epic.
+
+**Non-passing verification blocks the next phase.** Each phase epic has
+a `blocks` edge to the next phase's epic. A non-passing verification
+task keeps the phase epic open, which prevents `bd ready` from surfacing
+any task in subsequent phases. This is intentional — broken phases must
+not propagate to downstream work.
+
+Close the master epic only after all phase epics are closed.
 
 ## Rules
 
@@ -176,3 +198,7 @@ only after all phase epics are closed.
   verify the build passes before closing the epic. Individual tasks require
   a build only when their done conditions explicitly call for it (e.g.,
   unit tests, verification gates).
+- **Verification tasks are hard gates.** A "Verify:" task that fails
+  blocks its phase epic from closing. Do not skip it, do not defer it, do
+  not close the phase without it passing. This is the mechanism that
+  prevents broken phases from propagating to downstream work.
