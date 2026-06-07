@@ -5,7 +5,7 @@ description: >
   beads (master epic, phase epics, per-task beads with full descriptions),
   then execute tasks sequentially by claiming, implementing, verifying done
   conditions, and closing each bead. Companion documents (spec, arch-design,
-  design study) are loaded for context. Usage: /execute-plan <path-to-plan>
+  brief) are loaded for context. Usage: /execute-plan <path-to-plan>
 ---
 
 # Execute Plan
@@ -40,14 +40,14 @@ Reject if `status` is `draft` (not reviewed) or `archived` (stale). Accept
 
 ### Step 2: Find companion document
 
-Read the plan's `spec` and `arch-design` metadata fields. If either points
-to a file that exists, present it to the user:
+Read the plan's `spec`, `arch-design`, and `brief` metadata fields. For
+each that points to a file that exists, present it to the user:
 
 > Found companion document: `<path>`. Is this the right one?
 
-If neither field is set, or the referenced file does not exist, search the
-plan's sibling directories for a design study, spec, or arch-design with a
-matching topic slug. If found, confirm. If nothing found:
+If no companion field is set, or none of the referenced files exist, search
+the plan's sibling directories for a design study, spec, arch-design, or
+brief with a matching topic slug. If found, confirm. If nothing found:
 
 > No companion document found. Proceed without one?
 
@@ -100,11 +100,11 @@ Generate a `bd create --graph` JSON with:
 Every task description **MUST** include:
 
 - **Target files**: exact paths from the plan's directory layout (section
-  3.3) and solution breakdown (section 3.5).
+  2.3) and solution breakdown (section 2.5).
 - **What to implement**: the change described in the plan's task row and
   solution breakdown.
 - **Done conditions**: observable pass/fail conditions from the plan's
-  success criteria (section 3.7) and task-specific checks.
+  success criteria (section 2.7) and task-specific checks.
 
 After creation, transition the plan's `status` field from `approved` to
 `issued`.
