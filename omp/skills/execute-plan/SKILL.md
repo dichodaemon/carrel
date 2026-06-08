@@ -38,6 +38,10 @@ Read the plan document. Verify it conforms to the impl-plan doc definition
 Reject if `status` is `draft` (not reviewed) or `archived` (stale). Accept
 `approved` or `issued`.
 
+This is a minimum gate check, not a full audit. For comprehensive
+validation (structural compliance, internal consistency, companion
+alignment, codebase grounding), run `/audit-plan` before approving.
+
 ### Step 2: Find companion document
 
 Read the plan's `spec`, `arch-design`, and `brief` metadata fields. For

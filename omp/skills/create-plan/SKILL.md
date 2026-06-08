@@ -205,60 +205,21 @@ table.
 
 ## Phase 4: Self-Audit
 
-Before presenting the plan, verify it against these checklists. Fix
-any failures before proceeding.
+Before presenting the plan, run the audit-plan checklists against the
+draft. The audit-plan skill (`/audit-plan`) is the single source of
+truth for what a correct plan looks like. Its phases cover:
 
-### Checklist 1: Doc-definition compliance
+1. **Structural compliance** -- required sections, task format, Verify:
+   gates, test tasks.
+2. **Internal consistency** -- cross-references between status table,
+   directory layout, interface changes, and solution breakdown.
+3. **Companion alignment** -- arch-design types/contracts, brief
+   findings/rejections, spec acceptance criteria, issue scope.
+4. **Codebase grounding** -- file paths exist, function signatures
+   match, callers verified via `lsp references`, test files exist.
 
-- [ ] Metadata has `title`, `status: draft`, `date`, `author`.
-- [ ] At least one companion field is set (`spec`, `arch-design`,
-      `brief`, or `issue`).
-- [ ] Status table has phase summary with dependency declarations.
-- [ ] Every task row names target file(s).
-- [ ] Every production logic task has a corresponding test task
-      (write or update).
-- [ ] Every phase ends with a Verify: task.
-- [ ] Every Verify: task names an exact command or observable condition.
-- [ ] Architecture section has a directory layout table.
-- [ ] Interface changes section covers types AND functions.
-- [ ] Every solution breakdown subsection has a done condition.
-- [ ] Every success criterion traces to a Verify: task.
-- [ ] Document staleness audit is complete.
-
-### Checklist 2: Arch-design alignment
-
-For every interface change (new type, modified signature, new field):
-
-- [ ] The change is consistent with the arch-design's type definitions
-      and contracts.
-- [ ] If the change deviates from the arch-design, the deviation is
-      flagged in the design decisions section with a rationale.
-- [ ] If the arch-design needs updating, the staleness audit includes
-      it and the status table has an update task (or the update was
-      done pre-plan).
-
-### Checklist 3: Execute-plan compatibility
-
-The execute-plan skill requires every bead description to include
-target files, what to implement, and done conditions. Verify:
-
-- [ ] Every task in the status table has enough detail to generate a
-      bead description without going back to the solution breakdown.
-- [ ] Verify: tasks are distinguishable by their "Verify:" prefix.
-- [ ] Phase dependencies are explicit in the phase summary (execute-plan
-      wires `blocks` edges from these declarations).
-- [ ] Intra-phase dependencies are explicit in the solution breakdown
-      (execute-plan wires `blocks` edges from these).
-
-### Checklist 4: Codebase grounding
-
-- [ ] Every file path in the directory layout exists in the codebase
-      (or is marked "New file").
-- [ ] Every function signature in the interface changes section matches
-      the current codebase (not the companion document's description).
-- [ ] Every caller listed for modified functions was found via
-      `lsp references`, not assumed.
-- [ ] Every test file listed exists and was read.
+Fix any errors before proceeding to Phase 5. Warnings need
+acknowledgment but do not block.
 
 ## Phase 5: Present
 
@@ -273,8 +234,9 @@ Present a summary to the user:
 - Plan path
 - Number of phases, tasks, verify gates, test tasks
 - Key design decisions that need review
-- Any arch-design deviations flagged
+- Any companion deviations flagged
 - Any divergences between companion documents and codebase
+- Audit result (errors fixed, warnings acknowledged)
 
 ### Step 3: Wait for approval
 
