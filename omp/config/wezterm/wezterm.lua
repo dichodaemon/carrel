@@ -326,10 +326,10 @@ local config = {
 
   unix_domains = {
     { name = 'unix' },
-    {
-      name = 'carrel',
-      proxy_command = { 'ssh', '-T', '<user>@<host-address>', '/home/<user>/code/carrel/bin/proxy' },
-    },
+    -- {
+    --   name = 'carrel',
+    --   proxy_command = { 'ssh', '-T', '<user>@<host-address>', '/home/<user>/code/carrel/bin/proxy' },
+    -- },
   },
 }
 
