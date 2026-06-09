@@ -123,8 +123,8 @@ RUN curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VERSI
     && rm -f /tmp/nvim.tar.gz
 
 # markless
-ARG MARKLESS_VERSION=0.9.26
-ARG MARKLESS_CHECKSUM=8e7077182ef7c6e47e1bc20f1f930880bcbfe406f40b6c8f1e3ff25332c4fea8
+ARG MARKLESS_VERSION=0.9.29
+ARG MARKLESS_CHECKSUM=7c7911ee34707ff85dbbee2b7f588f4366067adbad2a3a4d5730d0165249599d
 RUN curl -fsSL "https://github.com/jvanderberg/markless/releases/download/v${MARKLESS_VERSION}/markless-x86_64-unknown-linux-gnu.tar.gz" \
         -o /tmp/markless.tar.gz \
     && echo "${MARKLESS_CHECKSUM}  /tmp/markless.tar.gz" | sha256sum -c - \
