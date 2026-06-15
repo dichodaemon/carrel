@@ -30,10 +30,11 @@ if [[ ! -f .env ]]; then
     echo "Hindsight memory backend: choose Gemma 4 model"
     echo "  gemma4:e2b  — 2B, fits any GPU or CPU"
     echo "  gemma4:e4b  — 4B, needs GTX 1660 Ti 6GB+"
+    echo "  gemma4:12b  — 12B, needs 10GB+ VRAM"
     echo "  gemma4:26b  — 26B MoE, needs 16GB+ VRAM"
     echo "  gemma4:31b  — 31B, needs 24GB+ VRAM"
-    read -p "Model [gemma4:e4b]: " HINDSIGHT_OLLAMA_MODEL
-    HINDSIGHT_OLLAMA_MODEL="${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}"
+    read -p "Model [gemma4:12b]: " HINDSIGHT_OLLAMA_MODEL
+    HINDSIGHT_OLLAMA_MODEL="${HINDSIGHT_OLLAMA_MODEL:-gemma4:12b}"
 
     read -p "Hindsight port [8888]: " HINDSIGHT_PORT
     HINDSIGHT_PORT="${HINDSIGHT_PORT:-8888}"
@@ -82,8 +83,8 @@ if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null 2>&1; then
     fi
 else
     echo "No GPU detected (nvidia-smi not found or no NVIDIA GPU) — Ollama will use CPU inference"
-    if [[ "${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}" == "gemma4:e4b" ]]; then
-        echo "Warning: gemma4:e4b on CPU will be slow. Consider gemma4:e2b instead."
+    if [[ "${HINDSIGHT_OLLAMA_MODEL:-gemma4:12b}" == "gemma4:12b" ]]; then
+        echo "Warning: gemma4:12b on CPU will be very slow. Consider gemma4:e4b or gemma4:e2b instead."
     fi
 fi
 
@@ -98,7 +99,7 @@ else
 fi
 
 # Model auto-pull for Ollama
-MODEL="${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}"
+MODEL="${HINDSIGHT_OLLAMA_MODEL:-gemma4:12b}"
 echo "Checking if Ollama model $MODEL is available..."
 if curl -sf http://localhost:${OLLAMA_PORT:-11434}/api/tags 2>/dev/null | grep -qF "\"$MODEL\""; then
     echo "Model $MODEL already cached."

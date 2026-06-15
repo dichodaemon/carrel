@@ -43,7 +43,7 @@ services:
     environment:
       HINDSIGHT_API_LLM_PROVIDER: ollama
       HINDSIGHT_API_LLM_BASE_URL: http://ollama:11434/v1
-      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_OLLAMA_MODEL:-gemma4:e4b}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_OLLAMA_MODEL:-gemma4:12b}
       HINDSIGHT_API_WORKER_ID: hindsight-carrel
     networks:
       - internal
