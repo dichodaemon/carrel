@@ -68,6 +68,21 @@ services:
               count: 1
               capabilities: [gpu]
 
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    volumes:
+      - open-webui-data:/app/backend/data
+    ports:
+      - "${OPEN_WEBUI_PORT:-8080}:8080"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    networks:
+      - internal
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
 
 networks:
   internal:
@@ -76,3 +91,4 @@ networks:
 volumes:
   hindsight-data:
   ollama-data:
+  open-webui-data:
