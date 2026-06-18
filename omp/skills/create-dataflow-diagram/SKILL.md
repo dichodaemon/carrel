@@ -150,7 +150,10 @@ If no `palette.yaml` exists, ask the user before inventing colors.
 
 ## Step 9: Write the mermaid source
 
-Assemble the diagram. Technical requirements:
+Assemble the diagram. Use `flowchart TD` (not `graph TD` — `graph` is
+legacy and lacks full subgraph support).
+
+Technical requirements:
 
 - **Stereotypes**: Unicode guillemets `«»` (U+00AB, U+00BB), never `<<`/`>>`.
 - **Stereotype placement**: On its own line above the name, using `<br>`:
@@ -161,15 +164,23 @@ Assemble the diagram. Technical requirements:
 - **Subgraph IDs**: Use `<name>_sub` suffix (e.g., `planning_sub`).
 - **Subgraph labels**: The subsystem's display name in brackets
   (e.g., `[Planning]`).
-- **Horizontal layout inside subgraphs**: Use `direction LR` inside a
-  subgraph to force horizontal node arrangement in declaration order.
-  This serves two purposes: (1) ordering unconnected sibling nodes by
-  call sequence, and (2) keeping connected nodes within the same
-  subgraph at the same rank, preventing the subgraph from spanning
-  multiple ranks and displacing peer subgraphs vertically.
-- **Do not use `~~~` invisible links for ordering within a subgraph.**
-  In `graph TD`, `~~~` creates rank offsets (vertical displacement),
-  not horizontal ordering. Use `direction LR` instead.
+- **`direction` inside subgraphs is unreliable.** Mermaid ignores
+  `direction LR` (or any direction override) inside a subgraph when any
+  of that subgraph's nodes has an edge crossing the subgraph boundary.
+  The subgraph silently inherits the parent graph's direction instead.
+  Since data flow diagrams almost always have cross-boundary edges, do
+  not rely on `direction` for layout control. In `flowchart TD`,
+  unconnected sibling nodes within a subgraph already arrange
+  side-by-side, which is usually the desired behavior.
+- **Do not use `~~~` invisible links for ordering.** In `flowchart TD`,
+  `~~~` creates rank offsets (vertical displacement), not horizontal
+  ordering.
+- **Use long arrows (`--->`) to control vertical rank spacing.** When
+  two edges from the same node place their targets at the same rank
+  (causing peer subgraphs to align horizontally instead of vertically),
+  add extra dashes to the edge that should reach a deeper rank. Each
+  extra dash adds one rank of spacing. This is the reliable way to
+  force vertical ordering between subgraphs.
 
 ## Step 10: Render and verify
 
