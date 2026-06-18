@@ -65,23 +65,29 @@ Rules:
 - For context-level diagrams, nodes are subsystems (not individual symbols).
   Skip this step and use the subsystem names from the palette file instead.
 
-## Step 4: Trace dispatch ownership
+## Step 4: Trace call ownership
 
 Read the implementation files (`.cc`, `.cu`) to determine **who calls what**.
 This step prevents the most common diagram error: drawing direct
 operation-to-operation arrows when a component dispatches both.
 
+**Core rule: for functions, methods, and kernels, every incoming arrow must
+come from the caller.** If `Initialize` calls both `BuildConfig` and
+`BuildCoordinator`, the incoming arrows to both operations originate at
+`Initialize` — not at each other, even if one produces data the other
+consumes. The data dependency is real, but the call relationship determines
+arrow routing.
+
 For each operation identified in Step 3:
 1. Find the call site in the implementation.
-2. Identify the calling function. It should be a method on one of the
-   components from Step 3.
-3. Record: `Component X dispatches Operation Y`.
+2. Identify the calling function or component.
+3. Record: `Caller X dispatches Operation Y`.
 
-The resulting dispatch map determines arrow routing:
-- Arrows go **from the component to each operation** it dispatches.
+The resulting call map determines arrow routing:
+- Arrows go **from the caller to each operation** it dispatches.
 - When an operation produces data that a subsequent operation consumes, and
-  the component orchestrates both, route the data **back through the
-  component**: `Operation A → Component → Operation B`. Do not draw
+  a third entity orchestrates both, route the data **back through the
+  orchestrator**: `Operation A → Orchestrator → Operation B`. Do not draw
   `Operation A → Operation B` unless A literally invokes B in the code.
 
 ## Step 5: Classify arrows
@@ -186,8 +192,8 @@ the relevant step.
 - [ ] Every node name matches an actual symbol in the codebase (Step 3).
 - [ ] No component from outside the package appears with a solid border
       (Step 2).
-- [ ] No direct operation-to-operation arrows unless the code literally shows
-      one calling the other (Step 4).
+- [ ] Every incoming arrow to an operation (function/method/kernel) originates
+      at the caller, not at a sibling operation (Step 4).
 - [ ] Thick arrows appear only where this package's code calls `cudaMemcpy`
       with H2D/D2H (Step 5).
 - [ ] Every kernel/function output is accounted for in outgoing arrows
