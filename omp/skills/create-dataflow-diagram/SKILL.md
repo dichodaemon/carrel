@@ -161,6 +161,15 @@ Assemble the diagram. Technical requirements:
 - **Subgraph IDs**: Use `<name>_sub` suffix (e.g., `planning_sub`).
 - **Subgraph labels**: The subsystem's display name in brackets
   (e.g., `[Planning]`).
+- **Horizontal layout inside subgraphs**: Use `direction LR` inside a
+  subgraph to force horizontal node arrangement in declaration order.
+  This serves two purposes: (1) ordering unconnected sibling nodes by
+  call sequence, and (2) keeping connected nodes within the same
+  subgraph at the same rank, preventing the subgraph from spanning
+  multiple ranks and displacing peer subgraphs vertically.
+- **Do not use `~~~` invisible links for ordering within a subgraph.**
+  In `graph TD`, `~~~` creates rank offsets (vertical displacement),
+  not horizontal ordering. Use `direction LR` instead.
 
 ## Step 10: Render and verify
 
