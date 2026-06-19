@@ -281,9 +281,25 @@ Each finding has:
   - `P` = Compliance
   - `H` = Comprehensiveness
   - `R` = Readability
+- **Severity**: One of three levels:
+  - `error` -- Factually wrong, structurally non-compliant, or actively
+    misleading. Must fix before the document can be trusted.
+  - `warning` -- Significant gap or deviation that weakens the document
+    but does not make it factually wrong.
+  - `info` -- Advisory. Style improvement, minor inconsistency, or
+    enhancement opportunity.
 - **Location**: Section name and/or line number.
 - **Description**: What is wrong.
 - **Recommendation**: Specific action to fix it.
+
+Severity assignment guidelines:
+
+| Category | error | warning | info |
+|---|---|---|---|
+| Correctness | Wrong type, value, signature, or behavior | Incomplete but not misleading | Cosmetic inconsistency |
+| Compliance | Missing required section or structure | Wrong column name, formatting deviation | Stylistic preference |
+| Comprehensiveness | -- | Significant undocumented behavior or missing required content | Nice-to-have addition |
+| Readability | -- | High staleness risk, structural confusion | Style suggestion |
 
 ### Step 2: Present report
 
@@ -301,7 +317,7 @@ codebase, comprehensiveness, readability.
 
 ## Correctness (N findings)
 
-### C-1: <title>
+### C-1: <title> [error]
 
 **Line N.** <description>
 
@@ -341,13 +357,13 @@ codebase, comprehensiveness, readability.
 
 ## Summary
 
-| Category | Count |
-|---|---|
-| **Correctness** | N |
-| **Compliance** | N |
-| **Comprehensiveness** | N |
-| **Readability** | N |
-| **Total** | **N** |
+| Category | Errors | Warnings | Info | Total |
+|---|---|---|---|---|
+| **Correctness** | N | N | N | N |
+| **Compliance** | N | N | N | N |
+| **Comprehensiveness** | N | N | N | N |
+| **Readability** | N | N | N | N |
+| **Total** | **N** | **N** | **N** | **N** |
 
 <one paragraph identifying the root cause cluster if findings
 share a common cause>
