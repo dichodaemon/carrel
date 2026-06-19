@@ -226,3 +226,28 @@ to the relevant step.
 - [ ] Legend is present, accurate, and does not reference internal tooling.
 - [ ] Diagram renders without mermaid parse errors.
 - [ ] Cycle edges (if any) are highlighted in red.
+
+## Rules
+
+- **Never invent colors.** Read `palette.yaml` before writing any
+  `classDef`. If no palette exists, ask the user. Proceeding with
+  made-up hex values is the most common diagram error.
+- **`flowchart TD`, not `graph TD`.** `graph` is legacy mermaid syntax
+  and lacks full subgraph support.
+- **Container is the owning subsystem (L2) or package (L1).** Never
+  use a higher-level grouping (e.g., the top-level project) as the
+  container. At L3, there is no container.
+- **External references use their own subsystem's colors.** Not the
+  scoped subsystem's colors, not uniform gray. Gray is only for
+  entities with no palette entry (the `external` key).
+- **Solid = internal, dashed = external.** This is the single most
+  important visual distinction. Verify it for every node before
+  committing.
+- **Legends must not reference internal tooling.** Do not mention
+  `palette.yaml`, arcane, or any generation pipeline. The legend
+  explains visual semantics to the reader, not provenance to the
+  author.
+- **One level of containment only.** Never nest subgraphs inside
+  subgraphs.
+- **Read the standards first.** Do not proceed from memory. The
+  visual vocabulary standards are the normative reference.
