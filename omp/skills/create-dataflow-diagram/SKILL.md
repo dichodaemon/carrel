@@ -50,12 +50,13 @@ a component from another package.
 Read every public header (`.h`) in the package. For each exported symbol,
 classify it:
 
-| Source construct | Diagram entity | Label format |
-|---|---|---|
-| Class with state + methods | **Component** | `ClassName` (plain) |
-| Free function or static method | **Operation** `«function»` | `FunctionName` |
-| Instance method in the data flow | **Operation** `«method»` | `ClassName::MethodName` |
-| `__global__` kernel function | **Operation** `«kernel»` | `KernelName` |
+| Source construct | Diagram entity | Label format | Shape |
+|---|---|---|---|
+| Class with state + methods | **Component** | `ClassName` (plain) | Rectangle `[text]` |
+| Free function or static method | **Operation** `«function»` | `FunctionName` | Rectangle `["text"]` |
+| Instance method in the data flow | **Operation** `«method»` | `ClassName::MethodName` | Rectangle `["text"]` |
+| `__global__` kernel function | **Operation** `«kernel»` | `KernelName` | Rectangle `["text"]` |
+| Memory pool, device buffer, cycle-scoped shared memory | **Data store** | `PoolName` (plain) | Win-pane `@{ shape: win-pane }` |
 
 Rules:
 - Use the actual symbol name from the code. Never invent generic names like
@@ -113,6 +114,15 @@ Rules:
 - Thick arrows should be rare. A diagram dense with thick arrows is a flag.
 - Never guess. If you cannot find a `cudaMemcpy` call in the implementation
   for a given edge, the arrow is thin.
+- **Route thick arrows through data stores.** When the diagram includes a
+  data store (e.g., a device memory pool), thick arrows land on the edges
+  into and out of the data store — not on method call edges between host-side
+  operations. The pattern is:
+  `HostMethod ==>|"H2D data"| DataStore -->|"device data"| DeviceOp` and
+  `DeviceOp -->|"results"| DataStore ==>|"D2H data"| HostMethod`.
+  This makes the hardware boundary explicit: thick arrows touch the data
+  store; thin arrows connect the data store to the operations that read or
+  write it.
 
 ## Step 6: Verify completeness
 
@@ -181,6 +191,13 @@ Technical requirements:
   add extra dashes to the edge that should reach a deeper rank. Each
   extra dash adds one rank of spacing. This is the reliable way to
   force vertical ordering between subgraphs.
+- **Data stores**: Use the win-pane shape (ISO 5807 "internal storage")
+  via the generalized shape syntax (mermaid ≥11.3):
+  `DevMem@{ shape: win-pane, label: "PoolName" }`. Apply the subsystem
+  class separately: `class DevMem pipeline`. The `@{}` syntax does not
+  accept `:::className` inline. If the renderer does not support `@{}`
+  (e.g., older mermaid), fall back to the asymmetric shape:
+  `DevMem>"PoolName"]:::pipeline`.
 
 ## Step 10: Render and verify
 
@@ -203,6 +220,8 @@ Every diagram gets a `> [!NOTE]` block immediately after the closing
 - Any conditional paths (e.g., "extraction kernel runs only for
   TrajectoryPoint* input").
 - The stereotype meanings used in this diagram.
+- What the data store node represents, if present (e.g., "cycle-scoped
+  device memory backing all GPU-resident spans").
 
 ## Step 12: Pre-commit checklist
 
@@ -214,6 +233,8 @@ the relevant step.
       (Step 2).
 - [ ] Every incoming arrow to an operation (function/method/kernel) originates
       at the caller, not at a sibling operation (Step 4).
+- [ ] Thick arrows touch a data store node when present; they never span
+      a host-side method call boundary (Step 5).
 - [ ] Thick arrows appear only where this package's code calls `cudaMemcpy`
       with H2D/D2H (Step 5).
 - [ ] Every kernel/function output is accounted for in outgoing arrows
