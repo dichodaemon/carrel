@@ -116,6 +116,25 @@ when 4+ internal deps exist):
    directory. If no palette exists, note it as info-level (colors
    cannot be verified).
 3. For each diagram, verify:
+   - Diagram type matches the doc definition's directive. If the
+     definition says "detail-level data flow diagram for runtime
+     data flows," a plain flowchart with unlabeled arrows and no
+     stereotypes does not satisfy that requirement -- flag it as
+     error-level compliance. A diagram that uses the wrong type is
+     a missing required structure, not a stylistic preference.
+   - Detail-level data flow diagrams contain both entity kinds:
+     at least one component (plain label — the entity with runtime
+     identity that orchestrates work) and stereotyped operations
+     invoked by that component. A diagram with only operations and
+     no owning component violates §3.2.1 and §3.2.4. Operations
+     must be connected from their owning component by an arrow or
+     placed inside the same container as the component.
+   - Operations carry the correct stereotype prefixes (`«kernel»`,
+     `«function»`, `«method»`) when the doc definition or visual
+     vocabulary standards require them for the diagram type.
+   - Arrows are labeled with data types or buffer names when the
+     diagram type requires labeled arrows (all data flow diagrams
+     do).
    - Uses `flowchart TD`, not `graph TD`.
    - Fill colors match `palette.yaml` entries for each subsystem
      (`node_fill` and `stroke` from the owning subsystem's entry).
@@ -290,14 +309,18 @@ Each finding has:
     enhancement opportunity.
 - **Location**: Section name and/or line number.
 - **Description**: What is wrong.
-- **Recommendation**: Specific action to fix it.
+- **Recommendation**: Specific action to fix it. State the fix as a
+  directive ("Replace X with Y", "Add Z"). Never use hedging language
+  ("Consider X", "You might want to Y", "It would be nice to Z").
+  If a finding is worth reporting, the fix is worth stating as an
+  imperative.
 
 Severity assignment guidelines:
 
 | Category | error | warning | info |
 |---|---|---|---|
 | Correctness | Wrong type, value, signature, or behavior | Incomplete but not misleading | Cosmetic inconsistency |
-| Compliance | Missing required section or structure | Wrong column name, formatting deviation | Stylistic preference |
+| Compliance | Missing required section or structure; wrong diagram type when definition mandates a specific type | Wrong column name, formatting deviation | Stylistic preference |
 | Comprehensiveness | -- | Significant undocumented behavior or missing required content | Nice-to-have addition |
 | Readability | -- | High staleness risk, structural confusion | Style suggestion |
 
@@ -399,7 +422,15 @@ one structural issue may eliminate several findings at once.
 - **Diagram audit is mandatory when diagrams exist.** If the
   document contains any mermaid block, the visual vocabulary
   standards and palette must be checked. This is the most
-  error-prone area.
+  error-prone area. Check diagram TYPE first (data flow vs
+  dependency vs plain flowchart) against what the doc definition
+  requires -- a diagram that exists but uses the wrong type is
+  error-level non-compliance, not an advisory.
+- **Decisive recommendations.** Every recommendation is a
+  directive. "Replace the flowchart with a detail-level data flow
+  diagram" -- not "Consider upgrading." Hedging gives the
+  implementer permission to skip the fix. If a finding does not
+  warrant action, it does not warrant a finding.
 - **Do not fabricate the "orientation page" concept.** Every
   directory with a BUILD file is a package. Its README follows
   the standard README structure. There is no exemption for
