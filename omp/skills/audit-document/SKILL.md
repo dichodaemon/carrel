@@ -333,7 +333,7 @@ Severity assignment guidelines:
 | Category | error | warning | info |
 |---|---|---|---|
 | Correctness | Wrong type, value, signature, or behavior | Incomplete but not misleading | Cosmetic inconsistency |
-| Compliance | Missing required section or structure; wrong diagram type when definition mandates a specific type | Wrong column name, formatting deviation | Stylistic preference |
+| Compliance | Missing required section or structure; wrong diagram type when definition mandates a specific type; visual vocabulary violation (wrong directive, missing legend, wrong palette colors, wrong border styles, missing stereotypes) | Wrong column name, formatting deviation | Stylistic preference |
 | Comprehensiveness | -- | Significant undocumented behavior or missing required content | Nice-to-have addition |
 | Readability | -- | High staleness risk, structural confusion | Style suggestion |
 
