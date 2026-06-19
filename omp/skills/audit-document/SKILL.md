@@ -135,6 +135,19 @@ when 4+ internal deps exist):
    - Arrows are labeled with data types or buffer names when the
      diagram type requires labeled arrows (all data flow diagrams
      do).
+   - Arrow routing follows caller-to-callee ownership (§3.2.5).
+     Every incoming arrow to an operation must originate at the
+     entity that calls it — not at a sibling operation that merely
+     produces data it consumes. Read the implementation files
+     (`.cc`, `.cu`) to trace call sites. If a component
+     orchestrates two operations, the data routes through the
+     component (`A → Component → B`), never directly between
+     siblings (`A → B`). This check requires reading code; it
+     cannot be performed from the diagram alone.
+   - When a diagram finding requires replacing a diagram, the
+     recommendation must direct the implementer to follow
+     `/create-dataflow-diagram` — not to draw a replacement
+     from intuition.
    - Uses `flowchart TD`, not `graph TD`.
    - Fill colors match `palette.yaml` entries for each subsystem
      (`node_fill` and `stroke` from the owning subsystem's entry).
