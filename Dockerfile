@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zsh \
         zsh-syntax-highlighting \
         zsh-autosuggestions \
+        librsvg2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Docker CLI
@@ -181,7 +182,8 @@ RUN pip3 install --break-system-packages pyright==${PYRIGHT_VERSION} \
         markdown \
         markdownify \
         google-api-python-client \
-        google-auth
+        google-auth \
+        cairosvg
 
 # Rust toolchain
 ENV RUSTUP_HOME=/usr/local/rustup \
