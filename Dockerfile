@@ -23,6 +23,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         librsvg2-bin \
     && rm -rf /var/lib/apt/lists/*
 
+# Headless Chromium runtime deps (Puppeteer canonical list from pptr.dev/troubleshooting).
+# No X11 server needed — Chrome runs with --headless. librsvg2-bin above already
+# pulls in libcairo2, libglib2.0-0, libpango-1.0-0, libgdk-pixbuf2.0-0.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        fonts-liberation \
+        libasound2 \
+        libatk-bridge2.0-0 \
+        libatk1.0-0 \
+        libcups2 \
+        libdbus-1-3 \
+        libgbm1 \
+        libnspr4 \
+        libnss3 \
+        libpangocairo-1.0-0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxkbcommon0 \
+        libxrandr2 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Docker CLI
 RUN install -m 0755 -d /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
