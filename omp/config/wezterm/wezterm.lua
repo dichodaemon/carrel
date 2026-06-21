@@ -331,6 +331,9 @@ local config = {
     --   proxy_command = { 'ssh', '-T', '<user>@<host-address>', '/home/<user>/code/carrel/bin/proxy' },
     -- },
   },
+  set_environment_variables = {
+    EDITOR = 'hx',
+  },
 }
 
 -------------------------------------------------------------------------------
