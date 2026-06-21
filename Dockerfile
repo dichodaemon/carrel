@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # pulls in libcairo2, libglib2.0-0, libpango-1.0-0, libgdk-pixbuf2.0-0.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-liberation \
-        libasound2 \
+        libasound2t64 \
         libatk-bridge2.0-0 \
         libatk1.0-0 \
         libcups2 \
