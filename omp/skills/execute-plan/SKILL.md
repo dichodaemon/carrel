@@ -26,7 +26,7 @@ User says "execute plan", "run the plan", "implement the plan", or invokes
 
 ## Phase 0: Validate and Prepare
 
-### Step 1: Read and validate the plan
+### Plan validation
 
 Read the plan document. Verify it conforms to the impl-plan doc definition
 (`/workspace/folio/doc-definitions/impl-plan_definition.md`):
@@ -42,22 +42,24 @@ This is a minimum gate check, not a full audit. For comprehensive
 validation (structural compliance, internal consistency, companion
 alignment, codebase grounding), run `/audit-plan` before approving.
 
-### Step 2: Find companion document
+### Companion documents
 
 Read the plan's `spec`, `arch-design`, and `brief` metadata fields. For
-each that points to a file that exists, present it to the user:
-
-> Found companion document: `<path>`. Is this the right one?
+each that points to a file that exists, load it silently as context.
 
 If no companion field is set, or none of the referenced files exist, search
 the plan's sibling directories for a design study, spec, arch-design, or
-brief with a matching topic slug. If found, confirm. If nothing found:
+brief with a matching topic slug. If found, confirm with the user:
+
+> Found companion document: `<path>`. Is this the right one?
+
+If nothing found:
 
 > No companion document found. Proceed without one?
 
 Wait for user confirmation before continuing.
 
-### Step 3: Verify clean working tree
+### Clean working tree
 
 Run `git status`. If there are uncommitted changes, ask the user to commit
 or stash before proceeding. Execution must start from a clean state so that
@@ -65,12 +67,12 @@ every task's changes are traceable.
 
 ## Phase 1: Scaffold Beads
 
-### Step 1: Check for existing beads
+### Existing beads check
 
 Search for a master epic matching the plan's title. If found, proceed to
-compliance validation (step 2). If not found, proceed to creation (step 3).
+Bead structure validation. If not found, proceed to Bead scaffolding.
 
-### Step 2: Validate existing beads (if found)
+### Bead structure validation
 
 Verify the existing bead structure matches the plan:
 
@@ -85,7 +87,7 @@ Verify the existing bead structure matches the plan:
 If compliant, proceed to Phase 2. If not, report discrepancies and fix them
 (add missing beads, wire missing edges, enrich thin descriptions).
 
-### Step 3: Create beads (if not found)
+### Bead scaffolding
 
 Generate a `bd create --graph` JSON with:
 
@@ -103,15 +105,16 @@ Generate a `bd create --graph` JSON with:
 
 Every task description **MUST** include:
 
-- **Target files**: exact paths from the plan's directory layout (section
-  2.3) and solution breakdown (section 2.5).
+- **Target files**: exact paths from the plan's Architecture section
+  (directory layout) and Solution Breakdown section.
 - **What to implement**: the change described in the plan's task row and
   solution breakdown.
 - **Done conditions**: observable pass/fail conditions from the plan's
-  success criteria (section 2.7) and task-specific checks.
+  Success Criteria section and task-specific checks.
 
 After creation, transition the plan's `status` field from `approved` to
-`issued`.
+`issued`. If `--dry-run`, present the scaffolded bead structure and stop.
+Do not proceed to Phase 2.
 
 ## Phase 2: Execute
 
@@ -174,20 +177,31 @@ task fails:
 4. **Re-run** the verification task until it passes.
 5. **Close** the verification task, then close the phase epic.
 
-**Non-passing verification blocks the next phase.** Each phase epic has
-a `blocks` edge to the next phase's epic. A non-passing verification
-task keeps the phase epic open, which prevents `bd ready` from surfacing
-any task in subsequent phases. This is intentional — broken phases must
-not propagate to downstream work.
-
 Close the master epic only after all phase epics are closed.
 
 ## Rules
 
+**Process:**
+
 - **Claim before working.** No code changes without a claimed bead.
+- **Clean tree between tasks.** Commit before claiming the next task.
+- **Read before edit.** Read the plan section and companion section relevant
+  to the current task before touching any file.
+- **Build after every epic.** When all tasks in a phase epic are closed,
+  verify the build passes before closing the epic. Individual tasks require
+  a build only when their done conditions explicitly call for it.
+
+**Invariants:**
+
 - **Never close incomplete work.** A bead is closed only when every done
   condition in its description has been verified. If work cannot be
   completed, leave the bead open and mark it blocked.
+- **Verification tasks are hard gates.** A "Verify:" task that fails
+  blocks its phase epic from closing. Do not skip it, do not defer it, do
+  not close the phase without it passing.
+
+**Conflict resolution:**
+
 - **Companion document is context, not authority.** The plan is the
   execution authority. The companion provides rationale and type definitions.
   When they conflict, create a `discovered-from` issue to track the
@@ -195,14 +209,3 @@ Close the master epic only after all phase epics are closed.
 - **`discovered-from` protocol.** If execution surfaces unplanned work,
   create a new bead immediately, link it `discovered-from` the current task,
   and continue working on the current task.
-- **Clean tree between tasks.** Commit before claiming the next task.
-- **Read before edit.** Read the plan section and companion section relevant
-  to the current task before touching any file.
-- **Build after every epic.** When all tasks in a phase epic are closed,
-  verify the build passes before closing the epic. Individual tasks require
-  a build only when their done conditions explicitly call for it (e.g.,
-  unit tests, verification gates).
-- **Verification tasks are hard gates.** A "Verify:" task that fails
-  blocks its phase epic from closing. Do not skip it, do not defer it, do
-  not close the phase without it passing. This is the mechanism that
-  prevents broken phases from propagating to downstream work.
