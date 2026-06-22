@@ -113,6 +113,28 @@ Read the files surrounding the change to identify conventions:
 - Error handling patterns (if adding error paths)
 - Naming conventions for timing labels, test names, etc.
 
+### Step 6: Read normative contracts
+
+Companions often reference normative contract files -- schemas, specs,
+IDL definitions, interface headers -- as the authoritative definition
+of what "conforming output" means. Examples in prose like "emit master
+schema field names: `cycle_index`, `timestamp_s`..." are illustrative,
+not exhaustive.
+
+For every normative contract file referenced by a companion:
+
+1. Read the contract file in full.
+2. Enumerate every field, type, and constraint it defines.
+3. For each field, determine whether the current codebase already
+   conforms, will conform after the planned changes, or is not
+   applicable to this producer.
+4. Record the result -- this drives the completeness check in
+   Phase 3 Step 2.
+
+If a companion says "output conforming to X" and X is a file that
+exists in the codebase, read X. Do not rely on the companion's
+summary of X -- the summary may list examples, not the full surface.
+
 ## Phase 3: Draft the Plan
 
 Write each section per the doc definition. Follow this order:
@@ -150,6 +172,21 @@ issue: <reference if provided>
 
 5. Add end-to-end verification tasks in the final phase (full build,
    integration tests, scenario parity, profiling checks).
+
+6. **Contract completeness check.** For every normative contract
+   enumerated in Phase 2 Step 6, verify that the drafted tasks,
+   taken together, produce output conforming to the full contract.
+   Walk every field in each contract file:
+   - If a task covers it, note the task number.
+   - If the current code already conforms, verify in code and note
+     "already conforming."
+   - If the field is not applicable to this producer, note why.
+   - If none of the above, add a task. A field with no coverage and
+     no justification is a plan gap.
+
+   This step catches the case where a companion says "emit conforming
+   to schema X" and the plan addresses a subset of X's fields without
+   noticing the rest.
 
 ### Step 3: Architecture
 

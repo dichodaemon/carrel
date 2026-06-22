@@ -114,6 +114,36 @@ appropriate checks. Misalignment is an error-level finding.
       staleness audit includes it with an action (update task or
       "already updated").
 
+### Contract completeness (all companion types)
+
+Companions often reference normative contract files -- schemas, specs,
+IDL definitions -- as the authoritative definition of conformance.
+The checks above verify that what the plan *says* is consistent with
+the companion. This section checks that the plan does not *omit*
+requirements the companion mandates.
+
+For every normative contract file (schema, spec, interface definition)
+referenced by any companion document:
+
+- [ ] Read the contract file in full.
+- [ ] For every field, type, and constraint in the contract, verify
+      one of:
+      (a) A plan task produces conforming output for this field, or
+      (b) The current code already conforms (spot-check in code), or
+      (c) The field is not applicable to this producer and the plan
+          states why.
+- [ ] Any field with no coverage and no justification is an
+      error-level finding: "Schema X field Y not addressed by any
+      task."
+- [ ] If the plan cites a companion's prose summary of a contract
+      (e.g., "emit master schema field names: `a`, `b`, `c`") but
+      the contract file has additional fields beyond those examples,
+      the uncovered fields are errors unless explicitly scoped out
+      in the plan's design decisions.
+
+This prevents plans that treat illustrative examples in companion
+prose as the exhaustive requirement.
+
 ### If `brief` is set
 
 - [ ] Every bug or finding described in the brief is addressed by at
@@ -185,6 +215,25 @@ For every test file mentioned in the plan:
 - [ ] The test file exists.
 - [ ] The test target mentioned in Verify: tasks is a valid build
       target.
+
+### Step 5: Test fixture conformance
+
+If the plan modifies output formats and Verify: tasks use test data
+fixtures (e.g., JSON files, JSONL recordings, proto text fixtures)
+for validation:
+
+- [ ] Identify every test fixture file used by Verify: tasks or
+      referenced in solution breakdown done conditions.
+- [ ] For each fixture, determine the target schema it should
+      conform to after the plan's changes.
+- [ ] Read the fixture and verify it conforms to the target schema.
+      Non-conforming fixtures (e.g., stale field names, wrong
+      structure, wrong format for polylines/trajectories) are
+      error-level findings.
+- [ ] If a fixture is non-conforming, verify the plan includes a
+      task to update it. If not, that is an error-level finding:
+      "Fixture X used by Verify: task Y.Z does not conform to
+      schema S and no task updates it."
 
 ## Phase 5: Report
 

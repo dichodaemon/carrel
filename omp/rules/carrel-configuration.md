@@ -51,10 +51,10 @@ carrel plan          # What would the next deployment produce?
   - Target-specific: `<target>/.carrel/<type>/` or `<target>-config/omp/<type>/` — only that consumer.
 - **Restart the OMP session** after modifying configuration (most config is loaded at init).
 - **Flag gaps, don't decide them.** When porting or replacing a system, any feature present in the source system that is absent in the target is a gap. Surface it immediately. Do not defer, skip, or mark as "non-critical" without asking.
-- **Two ways to edit source files:**
+- **Three ways to edit source files:**
   - `carrel config edit <type> <name> --content="..."` — updates file + registry hash atomically.
-  - Edit source file directly, then `carrel config scan <source-alias>` — resyncs registry hashes.
-  - Both are valid. Use direct edit + scan when making complex multi-line changes.
+  - `carrel config edit <type> <name> --file=<path>` — re-reads the file from disk and updates the registry hash. Use after editing a source file directly with complex multi-line changes.
+  - Edit source file directly, then `carrel config scan <source-alias>` — picks up *new* entries not yet in the registry. **Does not resync hashes for existing entries.** Use `edit --file=` instead for those.
 
 ## Available configuration types
 
@@ -114,10 +114,15 @@ carrel config edit rule no-push-master --content='Updated content'
 carrel config edit skill validate --file=./updated-validate.md
 ```
 
-Alternatively, edit the source file directly then rescan:
+Alternatively, edit the source file directly then resync the hash:
 ```bash
-carrel config scan carrel-omp
+# Re-read the on-disk file and update the registry hash:
+carrel config edit skill validate --file=omp/skills/validate/SKILL.md
 ```
+
+**Note:** `carrel config scan` only registers *new* entries. It does
+not update hashes for entries already in the registry. After editing
+an existing source file directly, use `edit --file=` to resync.
 
 
 ### Rename an entry
