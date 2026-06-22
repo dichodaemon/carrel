@@ -51,11 +51,16 @@ read it — term misuse is an info-level finding.
 Verify the plan has every required section with correct format per the
 doc definition. Each failure is an error-level finding.
 
+### Metadata
+
 - [ ] Metadata has `title`, `status`, `date`, `author`.
 - [ ] Title ends with "-- Implementation Plan".
 - [ ] Date matches `YYYY-MM-DD` format and the filename date prefix.
 - [ ] At least one companion field is set (`spec`, `arch-design`,
       `brief`, or `issue`).
+
+### Status table
+
 - [ ] Status table has a phase summary with dependency declarations.
 - [ ] Tasks use two-level numbering (N.M) where the first digit is
       the phase number.
@@ -65,31 +70,48 @@ doc definition. Each failure is an error-level finding.
 - [ ] Every phase ends with a "Verify:" task.
 - [ ] Every "Verify:" task names an exact command or observable
       pass/fail condition.
+
+### Sections
+
 - [ ] Architecture section exists with a directory layout table.
 - [ ] Interface changes section covers types AND functions (not just
       data model).
+- [ ] Document staleness audit is present.
+
+### Cross-references
+
 - [ ] Every solution breakdown subsection has a done condition
       cross-referencing a Verify: task.
 - [ ] Every success criterion traces to a specific Verify: task.
-- [ ] Document staleness audit is present.
 
 ## Phase 2: Internal Consistency
 
 Cross-reference sections against each other. Each mismatch is a
 warning-level finding.
 
+### Status table ↔ solution breakdown
+
 - [ ] Every task in the status table has a corresponding solution
       breakdown subsection (or is grouped with one that names it).
+- [ ] Phase dependencies in the summary match the dependency
+      declarations in the solution breakdown ("Requires:" / "Produces:"
+      annotations).
+
+### Status table ↔ directory layout
+
 - [ ] Every file in the directory layout is touched by at least one
       task in the status table.
 - [ ] Every task's target file appears in the directory layout.
+
+### Interface changes ↔ tasks
+
 - [ ] Every type and function in the interface changes section is
       referenced by at least one task.
 - [ ] Every removed function/field has a task that performs the
       removal.
-- [ ] Phase dependencies in the summary match the dependency
-      declarations in the solution breakdown ("Requires:" / "Produces:"
-      annotations).
+
+### Cross-reference integrity
+
 - [ ] The staleness audit covers all companion documents listed in
       the metadata.
 - [ ] Design decisions reference the correct task numbers.
@@ -101,26 +123,7 @@ warning-level finding.
 For each companion type present in the plan's metadata, run the
 appropriate checks. Misalignment is an error-level finding.
 
-### If `arch-design` is set
-
-- [ ] Every type or struct in the interface changes section is
-      consistent with the arch-design's type definitions.
-- [ ] Every new or modified function signature is consistent with the
-      arch-design's contracts (section numbers, parameter lists).
-- [ ] Every design decision in the plan aligns with the arch-design,
-      or the deviation is explicitly flagged in the design decisions
-      section with a rationale.
-- [ ] If the arch-design needs updating to match the plan, the
-      staleness audit includes it with an action (update task or
-      "already updated").
-
 ### Contract completeness (all companion types)
-
-Companions often reference normative contract files -- schemas, specs,
-IDL definitions -- as the authoritative definition of conformance.
-The checks above verify that what the plan *says* is consistent with
-the companion. This section checks that the plan does not *omit*
-requirements the companion mandates.
 
 For every normative contract file (schema, spec, interface definition)
 referenced by any companion document:
@@ -136,13 +139,36 @@ referenced by any companion document:
       error-level finding: "Schema X field Y not addressed by any
       task."
 - [ ] If the plan cites a companion's prose summary of a contract
-      (e.g., "emit master schema field names: `a`, `b`, `c`") but
-      the contract file has additional fields beyond those examples,
-      the uncovered fields are errors unless explicitly scoped out
-      in the plan's design decisions.
+      but the contract file has additional fields beyond those
+      examples, the uncovered fields are errors unless explicitly
+      scoped out in the plan's design decisions.
 
-This prevents plans that treat illustrative examples in companion
-prose as the exhaustive requirement.
+### Unresolved companion choices
+
+Scan every companion document for passages that offer multiple
+approaches or alternatives:
+
+- [ ] For each such passage, verify the plan's Design Decisions
+      section records which alternative was chosen and why.
+- [ ] If no Design Decision addresses the choice, that is an
+      error-level finding: "Companion C §N offers alternatives
+      [X, Y]; plan silently chose X without recording the decision."
+- [ ] If the plan chose the companion's non-preferred alternative,
+      verify the Design Decision explains why. Unjustified selection
+      of a fallback is a warning-level finding.
+
+### If `arch-design` is set
+
+- [ ] Every type or struct in the interface changes section is
+      consistent with the arch-design's type definitions.
+- [ ] Every new or modified function signature is consistent with the
+      arch-design's contracts (section numbers, parameter lists).
+- [ ] Every design decision in the plan aligns with the arch-design,
+      or the deviation is explicitly flagged in the design decisions
+      section with a rationale.
+- [ ] If the arch-design needs updating to match the plan, the
+      staleness audit includes it with an action (update task or
+      "already updated").
 
 ### If `brief` is set
 
@@ -181,48 +207,23 @@ prose as the exhaustive requirement.
 For every task in the status table that creates or modifies a data
 file (JSON, JSONL, proto text, config, test fixture):
 
-- [ ] Determine the file's provenance: is it authored (source of
-      truth is the file itself), generated (output of a tool, build
-      target, or script), or derived (mechanically transformed from
-      another file)?
-- [ ] For generated files, identify the generator (build target,
-      CLI binary, script). Verify the plan includes a task that
-      runs the generator rather than hand-editing the output. A
-      task that hand-edits a generated file is an error-level
-      finding: "Task X.Y hand-edits generated file F; must run
-      generator G instead."
+- [ ] Classify the file's provenance using the categories from
+      create-plan Phase 2 Step 7 (authored, generated, or derived).
+- [ ] For generated files, identify the generator. Verify the plan
+      runs the generator rather than hand-editing the output. A task
+      that hand-edits a generated file is an error-level finding:
+      "Task X.Y hand-edits generated file F; must run generator G
+      instead."
 - [ ] For derived files, verify the plan includes a task to create
       or run the transform tool. A task that hand-writes a derived
       artifact without a tool is an error-level finding.
-
-Signals that a file is generated:
-- A build target or script exists that writes to that path.
-- A companion says "regenerate" or "run X to produce."
-- A binary exists whose purpose is to produce files of this type
-  (e.g., `scenario_runner` produces `.jsonl`).
-
-### Unresolved companion choices
-
-Scan every companion document for passages that offer multiple
-approaches or alternatives (language like "X or Y", "either A or B",
-"option 1 ... option 2", "regenerate or rewrite"):
-
-- [ ] For each such passage, verify the plan's Design Decisions
-      section records which alternative was chosen and why.
-- [ ] If no Design Decision addresses the choice, that is an
-      error-level finding: "Companion C §N offers alternatives
-      [X, Y]; plan silently chose X without recording the decision."
-- [ ] If the plan chose the companion's non-preferred alternative
-      (e.g., fallback option listed second), verify the Design
-      Decision explains why. Unjustified selection of a fallback
-      is a warning-level finding.
 
 ## Phase 4: Codebase Grounding
 
 Verify the plan's claims against the actual codebase. Each false claim
 is an error-level finding.
 
-### Step 1: File paths
+### File paths
 
 For every file path in the directory layout:
 
@@ -230,7 +231,7 @@ For every file path in the directory layout:
 - [ ] The described change is plausible given the file's current
       content (e.g., "remove field X" — does field X exist?).
 
-### Step 2: Function signatures
+### Function signatures
 
 For every function in the interface changes section:
 
@@ -239,7 +240,7 @@ For every function in the interface changes section:
 - [ ] **Modified:** the "before" signature matches the current code.
 - [ ] **Removed:** the function currently exists.
 
-### Step 3: Caller verification
+### Caller verification
 
 For every modified or removed function:
 
@@ -249,7 +250,7 @@ For every modified or removed function:
 - [ ] The plan does not list callers that LSP does not find (phantom
       callers).
 
-### Step 4: Test files
+### Test files
 
 For every test file mentioned in the plan:
 
@@ -257,7 +258,7 @@ For every test file mentioned in the plan:
 - [ ] The test target mentioned in Verify: tasks is a valid build
       target.
 
-### Step 5: Test fixture conformance
+### Test fixture conformance
 
 If the plan modifies output formats and Verify: tasks use test data
 fixtures (e.g., JSON files, JSONL recordings, proto text fixtures)

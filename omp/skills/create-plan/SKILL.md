@@ -64,15 +64,11 @@ From the companion documents, extract:
 - **Invariants** and constraints the implementation must satisfy.
 - **Acceptance criteria** from the spec or brief.
 - **Process constraints and approach recommendations.** When a
-  companion recommends an approach (e.g., "regenerate from tool X")
-  or offers alternatives (e.g., "regenerate or rewrite by hand"),
-  record every option and the companion's preference order.
+  companion recommends an approach or offers alternatives, record
+  every option and the companion's preference order.
 - **Unresolved choices.** When a companion presents multiple
-  approaches without resolving to one, flag the choice. The plan
-  MUST NOT silently pick one — it must surface the choice to the
-  user (via the ask tool) before proceeding to Phase 3. The user's
-  decision is recorded in the plan's Design Decisions section with
-  a reference to the companion passage that offered the alternatives.
+  approaches without resolving to one, record the passage and
+  alternatives. These must be surfaced to the user before Phase 3.
 
 ### Step 3: Determine output path
 
@@ -125,25 +121,19 @@ Read the files surrounding the change to identify conventions:
 
 ### Step 6: Read normative contracts
 
-Companions often reference normative contract files -- schemas, specs,
-IDL definitions, interface headers -- as the authoritative definition
-of what "conforming output" means. Examples in prose like "emit master
-schema field names: `cycle_index`, `timestamp_s`..." are illustrative,
-not exhaustive.
+For every normative contract file referenced by a companion (schemas,
+specs, IDL definitions, interface headers), read it in full:
 
-For every normative contract file referenced by a companion:
-
-1. Read the contract file in full.
-2. Enumerate every field, type, and constraint it defines.
-3. For each field, determine whether the current codebase already
+1. Enumerate every field, type, and constraint it defines.
+2. For each field, determine whether the current codebase already
    conforms, will conform after the planned changes, or is not
    applicable to this producer.
-4. Record the result -- this drives the completeness check in
+3. Record the result -- this drives the completeness check in
    Phase 3 Step 2.
 
-If a companion says "output conforming to X" and X is a file that
-exists in the codebase, read X. Do not rely on the companion's
-summary of X -- the summary may list examples, not the full surface.
+Do not rely on a companion's prose summary of a contract -- the
+summary may list examples, not the full surface. If a companion says
+"output conforming to X" and X is a file, read X.
 
 ### Step 7: Trace artifact provenance
 
@@ -153,23 +143,16 @@ as test input, determine its provenance:
 - **Authored** -- the file is the source of truth (code, config,
   schema). Edited directly.
 - **Generated** -- the file is output of a tool, build target, or
-  script. Identify the generator and its inputs.
+  script (e.g., a scenario runner produces `.jsonl` cycle records).
+  Identify the generator and its inputs.
 - **Derived** -- the file is mechanically transformed from another
   file. Identify the source and the transform.
 
 For generated and derived artifacts, record the generator/transform
 and its inputs. The plan MUST use the generator to produce the
 artifact; hand-editing generated output is prohibited. If the
-generator does not yet exist (e.g., a v2-to-v3 format conversion),
-the plan must include a task to create it.
-
-Signals that a file is generated:
-- A build target or script that writes to that path.
-- A companion document that says "regenerate" or "run X to produce."
-- The file lives in an output directory or has a generated-content
-  comment header.
-- A binary exists whose purpose is to produce files of this type
-  (e.g., a scenario runner produces `.jsonl` cycle records).
+generator does not yet exist, the plan must include a task to create
+it.
 
 ## Phase 3: Draft the Plan
 
@@ -190,6 +173,8 @@ issue: <reference if provided>
 
 ### Step 2: Implementation Status
 
+#### Task organization
+
 1. Define phases by analyzing the dependency graph from Phase 2:
    - Data model / vocabulary changes first (no deps)
    - Logic changes that consume new types (depends on data model)
@@ -209,6 +194,8 @@ issue: <reference if provided>
 5. Add end-to-end verification tasks in the final phase (full build,
    integration tests, scenario parity, profiling checks).
 
+#### Validation checks
+
 6. **Contract completeness check.** For every normative contract
    enumerated in Phase 2 Step 6, verify that the drafted tasks,
    taken together, produce output conforming to the full contract.
@@ -219,10 +206,6 @@ issue: <reference if provided>
    - If the field is not applicable to this producer, note why.
    - If none of the above, add a task. A field with no coverage and
      no justification is a plan gap.
-
-   This step catches the case where a companion says "emit conforming
-   to schema X" and the plan addresses a subset of X's fields without
-   noticing the rest.
 
 7. **Artifact provenance check.** For every task that creates or
    modifies a data file, verify it respects the provenance from
@@ -294,16 +277,8 @@ table.
 
 Before presenting the plan, run the audit-plan checklists against the
 draft. The audit-plan skill (`/audit-plan`) is the single source of
-truth for what a correct plan looks like. Its phases cover:
-
-1. **Structural compliance** -- required sections, task format, Verify:
-   gates, test tasks.
-2. **Internal consistency** -- cross-references between status table,
-   directory layout, interface changes, and solution breakdown.
-3. **Companion alignment** -- arch-design types/contracts, brief
-   findings/rejections, spec acceptance criteria, issue scope.
-4. **Codebase grounding** -- file paths exist, function signatures
-   match, callers verified via `lsp references`, test files exist.
+truth for what a correct plan looks like -- do not re-list its phases
+here.
 
 Fix any errors before proceeding to Phase 5. Warnings need
 acknowledgment but do not block.
@@ -334,16 +309,18 @@ execute-plan.
 
 ## Rules
 
+**Before you start:**
+
 - **Read the doc-definition first, every time.** Do not rely on memory
   of the format. The definition is the authority.
 - **Read the codebase before writing.** Every type, function, and file
-  path in the plan must be verified against the actual code. Hope is
-  not a strategy.
+  path in the plan must be verified against the actual code.
+
+**While drafting:**
+
 - **Every design decision must be verified against the arch-design.**
   If misaligned, flag it for discussion before writing into the plan.
   Do not silently deviate.
-- **The plan is a draft.** The user approves it. Do not change status
-  from `draft` or begin execution.
 - **Companion documents are context, not the plan.** Do not duplicate
   investigation findings, acceptance criteria, or design rationale from
   the companion. Reference them.
@@ -351,14 +328,16 @@ execute-plan.
   is the execute-plan skill. Every structural choice should make
   execute-plan's job easier: clear task boundaries, explicit done
   conditions, exact file paths, Verify: gates.
+
+**Invariants:**
+
+- **The plan is a draft.** The user approves it. Do not change status
+  from `draft` or begin execution.
 - **Never hand-edit generated artifacts.** If a file is produced by a
   tool, script, or build target, the plan must run that tool to update
-  it. Hand-editing generated output is always wrong — it decouples the
-  artifact from its source of truth and will be overwritten on the
-  next regeneration.
+  it. Hand-editing generated output decouples the artifact from its
+  source of truth.
 - **Never silently resolve companion alternatives.** When a companion
-  document offers multiple approaches (e.g., "regenerate or rewrite by
-  hand"), the plan must surface the choice to the user before
-  proceeding. The user's decision is recorded in Design Decisions with
-  a reference to the companion passage. Silently picking a fallback
-  option is a plan error.
+  offers multiple approaches, surface the choice to the user before
+  proceeding. Record the decision in Design Decisions with a reference
+  to the companion passage.
