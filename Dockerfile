@@ -229,6 +229,11 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash -s "bun-v${B
 ARG OMP_VERSION=15.7.3
 RUN BUN_INSTALL=/usr/local bun install -g @oh-my-pi/pi-coding-agent@${OMP_VERSION}
 
+# Vega-Lite → SVG rendering for documentation charts
+ARG VEGA_CLI_VERSION=6.2.0
+ARG VEGA_LITE_VERSION=6.4.3
+RUN BUN_INSTALL=/usr/local bun install -g vega-cli@${VEGA_CLI_VERSION} vega-lite@${VEGA_LITE_VERSION}
+
 # Carrel build environment (binary built at container startup via entrypoint)
 ENV CGO_ENABLED=1 \
     GOPATH=/home/dev/go
