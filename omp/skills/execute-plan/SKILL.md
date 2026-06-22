@@ -119,6 +119,34 @@ After creation, transition the plan's `status` field from `approved` to
 `issued`. If `--dry-run`, present the scaffolded bead structure and stop.
 Do not proceed to Phase 2.
 
+### Bead audit
+
+After beads are created (whether freshly scaffolded or pre-existing),
+audit every bead against the plan before proceeding to execution:
+
+1. **Title–plan alignment.** Every bead's title must match the
+   corresponding plan task's numbering and summary. A bead titled
+   "6.3 Verify: Live gate" must correspond to plan task 6.3 and
+   describe the same gate.
+
+2. **Description completeness.** Every task bead's description must
+   contain the three required sections (target files, what to implement,
+   done conditions). Verify each section is substantive — not a
+   one-liner or copy of the title.
+
+3. **Done conditions match plan.** The done conditions in each bead
+   must match the plan's success criteria for that task. If the plan
+   says "run the live visualizer and confirm rendering", the bead
+   must say the same — not a weaker proxy like "run unit tests".
+
+4. **Manual vs automated.** If a done condition requires manual
+   verification (e.g., visual inspection, live system test), the bead
+   description must explicitly state this. Do not describe manual
+   gates with language that implies automated verification.
+
+Report any mismatches and fix them before proceeding to Phase 2.
+This audit is mandatory — not a best-effort check.
+
 ## Phase 2: Execute
 
 ### Execution loop
