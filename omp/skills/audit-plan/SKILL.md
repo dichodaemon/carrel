@@ -176,6 +176,47 @@ prose as the exhaustive requirement.
 - [ ] Any sub-tasks or acceptance criteria listed in the issue are
       covered by plan tasks.
 
+### Artifact provenance
+
+For every task in the status table that creates or modifies a data
+file (JSON, JSONL, proto text, config, test fixture):
+
+- [ ] Determine the file's provenance: is it authored (source of
+      truth is the file itself), generated (output of a tool, build
+      target, or script), or derived (mechanically transformed from
+      another file)?
+- [ ] For generated files, identify the generator (build target,
+      CLI binary, script). Verify the plan includes a task that
+      runs the generator rather than hand-editing the output. A
+      task that hand-edits a generated file is an error-level
+      finding: "Task X.Y hand-edits generated file F; must run
+      generator G instead."
+- [ ] For derived files, verify the plan includes a task to create
+      or run the transform tool. A task that hand-writes a derived
+      artifact without a tool is an error-level finding.
+
+Signals that a file is generated:
+- A build target or script exists that writes to that path.
+- A companion says "regenerate" or "run X to produce."
+- A binary exists whose purpose is to produce files of this type
+  (e.g., `scenario_runner` produces `.jsonl`).
+
+### Unresolved companion choices
+
+Scan every companion document for passages that offer multiple
+approaches or alternatives (language like "X or Y", "either A or B",
+"option 1 ... option 2", "regenerate or rewrite"):
+
+- [ ] For each such passage, verify the plan's Design Decisions
+      section records which alternative was chosen and why.
+- [ ] If no Design Decision addresses the choice, that is an
+      error-level finding: "Companion C §N offers alternatives
+      [X, Y]; plan silently chose X without recording the decision."
+- [ ] If the plan chose the companion's non-preferred alternative
+      (e.g., fallback option listed second), verify the Design
+      Decision explains why. Unjustified selection of a fallback
+      is a warning-level finding.
+
 ## Phase 4: Codebase Grounding
 
 Verify the plan's claims against the actual codebase. Each false claim

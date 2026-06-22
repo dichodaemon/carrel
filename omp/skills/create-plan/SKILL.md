@@ -63,6 +63,16 @@ From the companion documents, extract:
 - **Signatures** with exact parameter lists.
 - **Invariants** and constraints the implementation must satisfy.
 - **Acceptance criteria** from the spec or brief.
+- **Process constraints and approach recommendations.** When a
+  companion recommends an approach (e.g., "regenerate from tool X")
+  or offers alternatives (e.g., "regenerate or rewrite by hand"),
+  record every option and the companion's preference order.
+- **Unresolved choices.** When a companion presents multiple
+  approaches without resolving to one, flag the choice. The plan
+  MUST NOT silently pick one — it must surface the choice to the
+  user (via the ask tool) before proceeding to Phase 3. The user's
+  decision is recorded in the plan's Design Decisions section with
+  a reference to the companion passage that offered the alternatives.
 
 ### Step 3: Determine output path
 
@@ -135,6 +145,32 @@ If a companion says "output conforming to X" and X is a file that
 exists in the codebase, read X. Do not rely on the companion's
 summary of X -- the summary may list examples, not the full surface.
 
+### Step 7: Trace artifact provenance
+
+For every data file that the plan will create, modify, or depend on
+as test input, determine its provenance:
+
+- **Authored** -- the file is the source of truth (code, config,
+  schema). Edited directly.
+- **Generated** -- the file is output of a tool, build target, or
+  script. Identify the generator and its inputs.
+- **Derived** -- the file is mechanically transformed from another
+  file. Identify the source and the transform.
+
+For generated and derived artifacts, record the generator/transform
+and its inputs. The plan MUST use the generator to produce the
+artifact; hand-editing generated output is prohibited. If the
+generator does not yet exist (e.g., a v2-to-v3 format conversion),
+the plan must include a task to create it.
+
+Signals that a file is generated:
+- A build target or script that writes to that path.
+- A companion document that says "regenerate" or "run X to produce."
+- The file lives in an output directory or has a generated-content
+  comment header.
+- A binary exists whose purpose is to produce files of this type
+  (e.g., a scenario runner produces `.jsonl` cycle records).
+
 ## Phase 3: Draft the Plan
 
 Write each section per the doc definition. Follow this order:
@@ -187,6 +223,20 @@ issue: <reference if provided>
    This step catches the case where a companion says "emit conforming
    to schema X" and the plan addresses a subset of X's fields without
    noticing the rest.
+
+7. **Artifact provenance check.** For every task that creates or
+   modifies a data file, verify it respects the provenance from
+   Phase 2 Step 7:
+   - A task that hand-edits a generated artifact is a plan error.
+     Replace it with a task that runs the generator.
+   - A task that creates a derived artifact without a transform
+     tool is a plan error. Replace it with a task that creates the
+     tool and runs it.
+
+8. **Unresolved-choice check.** For every unresolved choice flagged
+   in Phase 1 Step 2, verify that the user was asked and the
+   decision is recorded in the Design Decisions section. A plan
+   that silently chose one alternative is a plan error.
 
 ### Step 3: Architecture
 
@@ -301,3 +351,14 @@ execute-plan.
   is the execute-plan skill. Every structural choice should make
   execute-plan's job easier: clear task boundaries, explicit done
   conditions, exact file paths, Verify: gates.
+- **Never hand-edit generated artifacts.** If a file is produced by a
+  tool, script, or build target, the plan must run that tool to update
+  it. Hand-editing generated output is always wrong — it decouples the
+  artifact from its source of truth and will be overwritten on the
+  next regeneration.
+- **Never silently resolve companion alternatives.** When a companion
+  document offers multiple approaches (e.g., "regenerate or rewrite by
+  hand"), the plan must surface the choice to the user before
+  proceeding. The user's decision is recorded in Design Decisions with
+  a reference to the companion passage. Silently picking a fallback
+  option is a plan error.
