@@ -97,10 +97,13 @@ Generate a `bd create --graph` JSON with:
 - **1 task per plan task**: `parent-child` to its phase epic. `blocks` edges
   per the plan's solution breakdown dependencies.
 - **Verification gates**: Tasks whose title starts with "Verify:" are
-  **phase gates**. Add a `blocks` edge from the phase epic to each of its
-  verification tasks (the phase epic is blocked by the verification task).
-  The phase epic cannot be closed until every verification task in it
-  passes. Because the next phase's epic is blocked by this phase's epic,
+  **phase gates**. They are `parent-child` of their phase epic like any
+  other task. Do NOT add `blocks` edges between phase epics and
+  verification tasks — beads forbids `blocks` edges between epics and
+  tasks. Phase gating is enforced procedurally: the execution loop (Phase
+  2 § Phase gates) halts at each phase boundary until every "Verify:" task
+  in the phase passes. Because the next phase's epic is blocked by the
+  current phase's epic (via the sequential epic-to-epic `blocks` edges),
   non-passing verification transitively blocks all subsequent phases.
 
 Every task description **MUST** include:
