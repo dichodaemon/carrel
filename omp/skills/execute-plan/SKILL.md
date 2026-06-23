@@ -149,6 +149,12 @@ This audit is mandatory — not a best-effort check.
 
 ## Phase 2: Execute
 
+### Precondition
+
+Before executing any task, verify the bead audit (Phase 1 § Bead audit)
+is complete. If beads were scaffolded or validated in this session and
+no audit was performed, STOP and run it now.
+
 ### Execution loop
 
 1. **Find work**: `bd ready` filtered to the master epic's descendants.
