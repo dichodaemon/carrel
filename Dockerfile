@@ -155,6 +155,16 @@ RUN curl -fsSL "https://github.com/leboiko/markdown-reader/releases/download/v${
     && cp "/tmp/markdown-reader-${MTE_VERSION}-x86_64-unknown-linux-musl/markdown-reader" /usr/local/bin/markdown-reader \
     && rm -rf /tmp/mte.tar.gz /tmp/markdown-reader-*
 
+# broot
+ARG BROOT_VERSION=1.56.4
+ARG BROOT_CHECKSUM=234ce9346dc3a38cb602f62bd872fa20f1b6227a6eca6c3c195fb36be5062df5
+RUN curl -fsSL "https://github.com/Canop/broot/releases/download/v${BROOT_VERSION}/broot_${BROOT_VERSION}.zip" \
+        -o /tmp/broot.zip \
+    && unzip -o -j /tmp/broot.zip "x86_64-unknown-linux-musl/broot" -d /tmp/broot-extract \
+    && echo "${BROOT_CHECKSUM}  /tmp/broot-extract/broot" | sha256sum -c - \
+    && cp /tmp/broot-extract/broot /usr/local/bin/broot \
+    && rm -rf /tmp/broot.zip /tmp/broot-extract
+
 # bd (beads)
 ARG BD_VERSION=1.0.3
 ARG BD_CHECKSUM=1ef5dca818d7e81574df9e9f9fc2a16ab711da09b0fa7b822ae162d9a81c8912
