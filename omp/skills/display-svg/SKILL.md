@@ -42,16 +42,32 @@ displayHeight = ceil(displayWidth * nativeHeight / nativeWidth)
 ```
 
 If the SVG is already ≤ 1024 px wide, use its native dimensions
-as-is and skip the `tab.evaluate` resize in Step 4.
+as-is and skip the `tab.evaluate` resize in Step 5.
 
-## Step 3: Close all browser tabs, then open a fresh one
+## Step 3: Create an HTML wrapper
+
+Opening a raw `.svg` file via `file://` makes the SVG the document
+root element. Chromium adds its own default padding around root SVGs,
+producing captures taller than the computed dimensions. Wrap the SVG
+in an HTML page with zero-margin CSS to eliminate this.
+
+```bash
+printf '<!DOCTYPE html>\n<html><head><style>\n  * { margin: 0; padding: 0; }\n  body { overflow: hidden; }\n  svg { display: block; }\n</style></head>\n<body>\n' > /tmp/svg_display.html
+cat <absolute-path> >> /tmp/svg_display.html
+printf '\n</body></html>' >> /tmp/svg_display.html
+```
+
+This gives a proper `<body>` element with controlled margins, so the
+`tab.evaluate` resize in Step 5 works correctly.
+
+## Step 4: Close all browser tabs, then open a fresh one
 
 ```
 browser action: close, all: true, kill: true
 
 browser action: open
   name: "svg"
-  url: "file://<absolute-path>"
+  url: "file:///tmp/svg_display.html"
   viewport: { width: <displayWidth>, height: <displayHeight>, scale: 1 }
 ```
 
@@ -60,7 +76,9 @@ clipping even when the viewport dimensions are correct. `scale: 1`
 prevents the default `deviceScaleFactor` (often 1.25) from inflating
 the capture.
 
-## Step 4: Scale the SVG element and screenshot
+Open the **HTML wrapper**, not the raw SVG file.
+
+## Step 5: Scale the SVG element and screenshot
 
 ```js
 await tab.evaluate(() => {
@@ -86,6 +104,9 @@ await tab.screenshot({ fullPage: true });
 
 ## Common mistakes
 
+- **Opening the raw SVG file directly.** Chromium renders it as the
+  document root with default padding, producing captures taller than
+  the computed dimensions. Always use the HTML wrapper from Step 3.
 - **Not closing all tabs before opening.** Stale tabs cause clipping
   even with correct viewport dimensions.
 - **Using native SVG dimensions as viewport when width > 1024.**

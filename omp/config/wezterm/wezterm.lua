@@ -57,10 +57,9 @@ wez.on('open-uri-editor-mode', function() open_in_editor = true end)
 -------------------------------------------------------------------------------
 wez.on('open-uri', function(window, pane, uri)
   -- Not one of our custom schemes → let WezTerm open it with the default browser.
-  -- Returning false defers to WezTerm's built-in handler (one open).
-  -- The previous explicit wez.open_with(uri) + return true caused double opens.
+  -- A nil return allows the default action; return false would suppress it.
   if not (uri:match('^bat://') or uri:match('^markless://')) then
-    return false
+    return
   end
 
   -- Capture and reset the editor-mode flag before any async work
@@ -227,7 +226,7 @@ wez.on('open-uri', function(window, pane, uri)
     notify(window, 'WezTerm error: ' .. tostring(err), 4)
   end
 
-  return true  -- always suppress default handling for our schemes
+  return false  -- suppress default handling for our custom schemes
 end)
 
 -------------------------------------------------------------------------------
