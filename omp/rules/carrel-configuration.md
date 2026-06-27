@@ -72,7 +72,6 @@ carrel plan          # What would the next deployment produce?
 | `context-file` | Project-level context files (AGENTS.md, CLAUDE.md) |
 | `append-system` | System prompt appendix content (concatenated across sources) |
 | `zsh` | Zsh configuration files |
-| `nvim` | Neovim configuration files |
 | `wezterm` | WezTerm configuration files |
 | `p10k` | Powerlevel10k configuration |
 
@@ -167,7 +166,7 @@ carrel discover          # Workspace repos and registration status
 
 ## OS tool configuration
 
-Carrel also manages OS-level configuration (zsh, nvim, wezterm, p10k). These types use the same `carrel config` CRUD commands:
+Carrel also manages OS-level configuration (zsh, wezterm, p10k). These types use the same `carrel config` CRUD commands:
 
 ```bash
 carrel config list zsh

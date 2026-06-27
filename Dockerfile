@@ -66,7 +66,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # WezTerm nightly
-ARG WEZTERM_VERSION=20260117-154428-05343b38
+ARG WEZTERM_VERSION=20260623-212301-09e52dd8
 RUN echo 'deb [trusted=yes] https://apt.fury.io/wez/ * *' \
         > /etc/apt/sources.list.d/wezterm.list \
     && apt-get update \
@@ -135,16 +135,6 @@ RUN curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v${LA
     && cp /tmp/lazygit /usr/local/bin/lazygit \
     && rm -rf /tmp/lazygit.tar.gz /tmp/lazygit
 
-# neovim
-ARG NVIM_VERSION=0.12.2
-ARG NVIM_CHECKSUM=31cf85945cb600d96cdf69f88bc68bec814acbff50863c5546adef3a1bcef260
-RUN curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VERSION}/nvim-linux-x86_64.tar.gz" \
-        -o /tmp/nvim.tar.gz \
-    && echo "${NVIM_CHECKSUM}  /tmp/nvim.tar.gz" | sha256sum -c - \
-    && tar -xzf /tmp/nvim.tar.gz -C /opt \
-    && ln -s /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim \
-    && rm -f /tmp/nvim.tar.gz
-
 # markless
 ARG MARKLESS_VERSION=0.9.29
 ARG MARKLESS_CHECKSUM=7c7911ee34707ff85dbbee2b7f588f4366067adbad2a3a4d5730d0165249599d
@@ -155,6 +145,16 @@ RUN curl -fsSL "https://github.com/jvanderberg/markless/releases/download/v${MAR
     && cp /tmp/markless /usr/local/bin/markless \
     && rm -rf /tmp/markless.tar.gz /tmp/markless
 
+# markdown-reader (TUI markdown viewer)
+ARG MTE_VERSION=1.34.73
+ARG MTE_CHECKSUM=16fc61a29e02b99519fd0f44d7cbc6f90073f23fbe8e7199ac2d6c55748ed028
+RUN curl -fsSL "https://github.com/leboiko/markdown-reader/releases/download/v${MTE_VERSION}/markdown-reader-${MTE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+        -o /tmp/mte.tar.gz \
+    && echo "${MTE_CHECKSUM}  /tmp/mte.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/mte.tar.gz -C /tmp \
+    && cp "/tmp/markdown-reader-${MTE_VERSION}-x86_64-unknown-linux-musl/markdown-reader" /usr/local/bin/markdown-reader \
+    && rm -rf /tmp/mte.tar.gz /tmp/markdown-reader-*
+
 # bd (beads)
 ARG BD_VERSION=1.0.3
 ARG BD_CHECKSUM=1ef5dca818d7e81574df9e9f9fc2a16ab711da09b0fa7b822ae162d9a81c8912
@@ -164,16 +164,6 @@ RUN curl -fsSL "https://github.com/gastownhall/beads/releases/download/v${BD_VER
     && tar -xzf /tmp/bd.tar.gz -C /tmp \
     && cp /tmp/bd /usr/local/bin/bd \
     && rm -rf /tmp/bd.tar.gz /tmp/bd
-
-# bv (beads viewer)
-ARG BV_VERSION=0.16.0
-ARG BV_CHECKSUM=5e4f855bd5b3a161c118658978f6e473d9c78724ee3666c7efaea329c443c44c
-RUN curl -fsSL "https://github.com/Dicklesworthstone/beads_viewer/releases/download/v${BV_VERSION}/bv_${BV_VERSION}_linux_amd64.tar.gz" \
-        -o /tmp/bv.tar.gz \
-    && echo "${BV_CHECKSUM}  /tmp/bv.tar.gz" | sha256sum -c - \
-    && tar -xzf /tmp/bv.tar.gz -C /tmp \
-    && cp /tmp/bv_${BV_VERSION}_linux_amd64/bv /usr/local/bin/bv \
-    && rm -rf /tmp/bv.tar.gz /tmp/bv_${BV_VERSION}_linux_amd64
 
 # helix
 ARG HELIX_VERSION=25.07.1
@@ -216,7 +206,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --no-modify-path --default-toolchain stable --profile minimal \
     && chmod -R a+w /usr/local/rustup /usr/local/cargo
 
-# wezterm terminfo — needed by hx, nvim, etc. when TERM=wezterm
+# wezterm terminfo — needed by hx, etc. when TERM=wezterm
 COPY omp/config/wezterm/wezterm.terminfo /tmp/wezterm.terminfo
 RUN tic -x -o /usr/share/terminfo /tmp/wezterm.terminfo \
     && rm /tmp/wezterm.terminfo
@@ -249,7 +239,6 @@ RUN userdel -r ubuntu 2>/dev/null || true \
 COPY --chown=dev:dev omp/config/zsh/p10k.zsh /home/dev/.p10k.zsh
 COPY --chown=dev:dev omp/config/zsh/zshrc.zsh /home/dev/.zshrc
 COPY --chown=dev:dev omp/config/zsh/zprofile.zsh /home/dev/.zprofile
-COPY --chown=dev:dev omp/config/nvim/init.lua /home/dev/.config/nvim/init.lua
 COPY --chown=dev:dev omp/config/wezterm/wezterm.lua /home/dev/.config/wezterm/wezterm.lua
 COPY --chown=dev:dev omp/config/wezterm/mux-server.lua /home/dev/.config/wezterm/wezterm.lua
 

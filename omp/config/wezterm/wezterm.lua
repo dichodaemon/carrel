@@ -12,10 +12,10 @@ new_brights[8] = '#ffffff'
 -------------------------------------------------------------------------------
 local hyperlink_rules = wez.default_hyperlink_rules()
 
--- .md files → markless
+-- .md files → markdown-reader
 table.insert(hyperlink_rules, {
   regex = [=[([^\s"'<>]+\.md)(:\d+)?]=],
-  format = 'markless://$0',
+  format = 'mdreader://$0',
 })
 
 -- bare www. URLs (WezTerm defaults only match https?://, not bare www. domains)
@@ -45,7 +45,7 @@ end
 
 -- Per-tab pane caches: tab_id → pane_id
 -- Persist for the lifetime of the WezTerm process (reset only on config reload).
-local markless_pane_by_tab = {}
+local mdreader_pane_by_tab = {}
 local bat_pane_by_tab = {}
 
 -- Flag: next bat:// open-uri should go to helix instead (set by CTRL+ALT+click)
@@ -58,7 +58,7 @@ wez.on('open-uri-editor-mode', function() open_in_editor = true end)
 wez.on('open-uri', function(window, pane, uri)
   -- Not one of our custom schemes → let WezTerm open it with the default browser.
   -- A nil return allows the default action; return false would suppress it.
-  if not (uri:match('^bat://') or uri:match('^markless://')) then
+  if not (uri:match('^bat://') or uri:match('^mdreader://')) then
     return
   end
 
@@ -170,40 +170,39 @@ wez.on('open-uri', function(window, pane, uri)
       end
     end
 
-    -- markless:// — open .md file in markless pane (reuse or split)
-    if uri:match('^markless://') then
-      local filepath = uri:gsub('^markless://', '')
+    -- mdreader:// — open .md file in markdown-reader pane (reuse or split)
+    if uri:match('^mdreader://') then
+      local filepath = uri:gsub('^mdreader://', '')
 
       local tab_id = pane:tab():tab_id()
 
-      -- Find the markless pane we previously created for this tab.
+      -- Find the markdown-reader pane we previously created for this tab.
       -- get_foreground_process_name() is empty for SSH-domain panes, so we
-      -- track pane IDs ourselves in markless_pane_by_tab.
-      local markless_pane
-      local cached_id = markless_pane_by_tab[tab_id]
+      -- track pane IDs ourselves in mdreader_pane_by_tab.
+      local mdreader_pane
+      local cached_id = mdreader_pane_by_tab[tab_id]
       if cached_id then
         for _, p in ipairs(pane:tab():panes()) do
           if p:pane_id() == cached_id then
-            markless_pane = p
+            mdreader_pane = p
             break
           end
         end
-        if not markless_pane then
+        if not mdreader_pane then
           -- Pane was closed; clear stale entry
-          markless_pane_by_tab[tab_id] = nil
+          mdreader_pane_by_tab[tab_id] = nil
         end
       end
-      if markless_pane then
-        -- Send 'q' alone first; if we concatenate the next command immediately,
-        -- the 'e' in 'markless' arrives while markless is still in raw mode and
-        -- triggers editor mode. Wait 300ms for the process to fully exit.
-        markless_pane:send_text('q')
-        markless_pane:activate()
+      if mdreader_pane then
+        -- Send 'q' to quit the current markdown-reader instance, then
+        -- wait for the process to fully exit before launching a new one.
+        mdreader_pane:send_text('q')
+        mdreader_pane:activate()
         wez.time.call_after(0.3, function()
-          markless_pane:send_text('markless --image-mode kitty ' .. filepath .. '\r')
+          mdreader_pane:send_text('markdown-reader ' .. filepath .. '\r')
         end)
       else
-        -- Split a shell in the same domain, then send the markless command
+        -- Split a shell in the same domain, then send the markdown-reader command
         window:perform_action(
           wez.action.SplitPane {
             direction = 'Right',
@@ -214,8 +213,8 @@ wez.on('open-uri', function(window, pane, uri)
         )
         wez.time.call_after(0.1, function()
           local new_pane = window:active_pane()
-          markless_pane_by_tab[tab_id] = new_pane:pane_id()
-          new_pane:send_text('markless --image-mode kitty ' .. filepath .. '\r')
+          mdreader_pane_by_tab[tab_id] = new_pane:pane_id()
+          new_pane:send_text('markdown-reader ' .. filepath .. '\r')
         end)
       end
     end
