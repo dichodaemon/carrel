@@ -1,4 +1,4 @@
-# Agent Configuration Workflow Cookbook
+# Carrel Cookbook
 
 Miscellaneous findings, tips, and workarounds discovered during development.
 
@@ -79,7 +79,6 @@ carrel slot sync-all --dry-run
 
 This shows which unwired entries would be linked to slots without applying any changes. Useful for verifying that your newly added or updated entry will be deployed before running the full chain.
 
-
 ---
 
 ## 4. Discovering new universal entries in other repos
@@ -100,5 +99,4 @@ carrel slot sync-all
 carrel run
 ```
 
-The full workflow for the authoring repo (carrel) is simpler — `add --file=` registers entries directly and they appear on the next deploy. But other consumers need the extra `scan-sources` step because they discover entries by walking the source directory, not from the registry directly.
----
+Consumers discover entries by walking the source directory, not from the registry directly. The `scan-sources` step bridges the gap between a source file existing on disk and the consumer being aware of it.
