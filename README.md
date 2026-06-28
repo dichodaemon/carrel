@@ -41,6 +41,17 @@ carrel dashboard          # Launch TUI
 carrel <type> add|rm|list|view|rename   # Per-type CRUD
 ```
 
+### Agent workflow
+
+```bash
+# Write source file, register, wire, deploy
+carrel config add <type> <name> --file=<path>  # idempotent registration
+carrel slot sync-all [--dry-run]               # wire new entries to slots
+carrel run                                      # compose, deploy, exec OMP
+```
+
+Use `carrel config add --file=` to register entries idempotently.
+
 ---
 
 ## Usage

@@ -25,6 +25,8 @@ carrel run
 
 The three-command chain is: `add` registers the entry in the registry with a stable UUID, `slot sync-all` wires it to the consumer's output slots, and `run` composes, deploys, and executes OMP with the updated configuration.
 
+The core pattern is: `carrel config add --file=<path>` — registration is always file-based.
+
 The `--source=carrel-omp` flag specifies the project configuration source. The `--file` flag reads the entry content from the source file — no need to paste content inline with `--content`.
 
 ---
@@ -47,6 +49,8 @@ carrel config add skill my-skill --source=carrel-omp --file=omp/skills/my-skill/
 carrel slot sync-all
 carrel run
 ```
+
+The core pattern is: `carrel config add --file=<path>` — registration is always file-based.
 
 The workflow is identical to rules: `add` registers the entry, `slot sync-all` links it to the consumer's slots, `run` deploys and executes. Use the type `skill` instead of `rule`, and point `--file` at the `SKILL.md` within the skill directory.
 
