@@ -79,7 +79,6 @@ the source directory and registered in the carrel registry.
 Examples:
   carrel config add rule no-push-master --source=carrel-omp --content="Never push to master"
   carrel config add skill validate --source=carrel-omp --file=./validate.md
-  echo "content" | carrel config add hook pre-commit --source=carrel-omp
 
 Available types — run 'carrel config types' to see all types with descriptions.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -103,7 +102,7 @@ Available types — run 'carrel config types' to see all types with descriptions
 					return err
 				}
 			} else {
-				return fmt.Errorf("--content, --file, or stdin required")
+				return fmt.Errorf("--content or --file required")
 			}
 
 			reg := mustOpenRegistry()
@@ -189,13 +188,26 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reg := mustOpenRegistry()
 			defer reg.Close()
-			entry, source, err := resolveEntryFromArgs(reg, args)
-			if err != nil {
-				return err
+			var typ registry.CapabilityType
+			var name string
+			if len(args) >= 1 && strings.Count(args[0], ":") >= 2 {
+				var err error
+				_, typ, name, err = registry.ParseEntryRef(args[0])
+				if err != nil {
+					return err
+				}
+			} else {
+				if len(args) < 2 {
+					return fmt.Errorf("type and name required")
+				}
+				var ok bool
+				typ, ok = lookupType(args[0])
+				if !ok {
+					return fmt.Errorf("unknown type %q; run 'carrel config types' to see available types", args[0])
+				}
+				name = args[1]
 			}
-			filePath := filepath.Join(source.Path, entry.RelativePath)
-			os.Remove(filePath)
-			return reg.RemoveEntry(entry.ID)
+			return authoring.RemoveEntry(reg, typ, name)
 		},
 	}
 }
@@ -249,78 +261,6 @@ Examples:
 
 	cmd.Flags().BoolVar(&metaOnly, "meta-only", false, "Show metadata only")
 	cmd.Flags().BoolVar(&contentOnly, "content-only", false, "Show content only")
-	return cmd
-}
-
-func crudEditCmd() *cobra.Command {
-	var content string
-	var filePath string
-
-	cmd := &cobra.Command{
-		Use:   "edit <type> <name> or <source:type:name>",
-		Short: "Edit a configuration entry",
-		Long: `Overwrite the content of a configuration entry's file and update the registry hash.
-
-Accepts either traditional (type, name) or compound ID (source:type:name).
-
-Examples:
-  carrel config edit rule no-push-master --content="Updated rule content"
-  carrel config edit skill validate --file=./updated-validate.md
-  carrel config edit secondary-configs:append-system:APPEND_SYSTEM.md --content="..."`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var data []byte
-			if content != "" {
-				data = []byte(content)
-			} else if filePath != "" {
-				var err error
-				data, err = os.ReadFile(filePath)
-				if err != nil {
-					return err
-				}
-			} else {
-				return fmt.Errorf("--content or --file required")
-			}
-
-			reg := mustOpenRegistry()
-			defer reg.Close()
-			entry, source, err := resolveEntryFromArgs(reg, args)
-			if err != nil {
-				return err
-			}
-			p := filepath.Join(source.Path, entry.RelativePath)
-			if err := os.WriteFile(p, data, 0644); err != nil {
-				return fmt.Errorf("write file: %w", err)
-			}
-			return reg.UpdateEntryMeta(entry.ID, registry.MetaUpdates{})
-		},
-	}
-
-	cmd.Flags().StringVar(&content, "content", "", "New content")
-	cmd.Flags().StringVar(&filePath, "file", "", "Read content from file")
-	return cmd
-}
-
-func crudUpdateCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update <type> <name> or <source:type:name>",
-		Short: "Update entry metadata",
-		Long: `Update metadata for a configuration entry.
-
-Accepts either traditional (type, name) or compound ID (source:type:name).
-
-Currently a placeholder — compose mode is set by convention during entry scan.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reg := mustOpenRegistry()
-			defer reg.Close()
-			entry, _, err := resolveEntryFromArgs(reg, args)
-			if err != nil {
-				return err
-			}
-			_ = entry
-			return nil
-		},
-	}
-
 	return cmd
 }
 

@@ -27,6 +27,7 @@ func slotCmd() *cobra.Command {
 	cmd.AddCommand(slotRmEntryCmd())
 	cmd.AddCommand(slotSyncCmd())
 	cmd.AddCommand(slotGenerateCmd())
+	cmd.AddCommand(slotSyncAllCmd())
 
 	return cmd
 }

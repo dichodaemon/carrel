@@ -36,7 +36,7 @@ func main() {
 		rootCmd.AddCommand(cmd)
 	}
 	// Query commands
-	for _, f := range []func() *cobra.Command{statusCmd, verifyCmd, dashboardCmd, sourcesCmd, deployedCmd, planCmd, previewCmd, dependentsCmd, feedsCmd, inspectCmd, traceCmd} {
+	for _, f := range []func() *cobra.Command{statusCmd, dashboardCmd, sourcesCmd, deployedCmd, planCmd, previewCmd, dependentsCmd, feedsCmd, inspectCmd, traceCmd} {
 		cmd := f()
 		cmd.GroupID = "query"
 		rootCmd.AddCommand(cmd)
@@ -99,9 +99,11 @@ func discoverCmd() *cobra.Command {
 
 func scanCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "scan <source-alias>",
-		Short: "Register files from a source directory as entries",
-		Long:  "Walks a registered source directory, matches files to capability type conventions, and registers them as entries. Idempotent — skips already-registered entries.",
+		Use:        "scan-sources <source-alias>",
+		Aliases:    []string{"scan"},
+		Short:      "Register files from a source directory as entries",
+		Long:       "Walks a registered source directory, matches files to capability type conventions, and registers them as entries. Idempotent — skips already-registered entries.",
+		Deprecated: "use scan-sources",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reg := mustOpenRegistry()
@@ -386,30 +388,6 @@ func statusCmd() *cobra.Command {
 			fmt.Println("\nSources:")
 			for _, s := range sources {
 				fmt.Printf("  %s — %s [%s]\n", s.Alias, s.Path, scopeStr(s.Scope))
-			}
-			return nil
-		},
-	}
-}
-
-func verifyCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "verify",
-		Short: "Check deployed state against claims",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reg := mustOpenRegistry()
-			defer reg.Close()
-
-			consumers, _ := reg.ListConsumers()
-			for _, c := range consumers {
-				_, _, err := reg.LastDeployment(c.ID)
-				if err == registry.ErrNoDeployment {
-					fmt.Printf("%s: no deployments\n", c.Alias)
-				} else if err != nil {
-					fmt.Printf("%s: error: %v\n", c.Alias, err)
-				} else {
-					fmt.Printf("%s: deployed\n", c.Alias)
-				}
 			}
 			return nil
 		},

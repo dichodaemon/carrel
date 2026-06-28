@@ -21,7 +21,7 @@ func configCmd() *cobra.Command {
 	cmd.AddCommand(sc)
 
 	// CRUD
-	for _, f := range []func() *cobra.Command{crudAddCmd, crudListCmd, crudRmCmd, crudViewCmd, crudEditCmd, crudUpdateCmd, crudRenameCmd} {
+	for _, f := range []func() *cobra.Command{crudAddCmd, crudListCmd, crudRmCmd, crudViewCmd, crudRenameCmd} {
 		c := f()
 		c.GroupID = "config-crud"
 		cmd.AddCommand(c)
