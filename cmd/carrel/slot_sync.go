@@ -161,136 +161,7 @@ func slotSyncAllCmd() *cobra.Command {
 				consumerAlias = c.Alias
 			}
 
-			c, err := reg.ResolveConsumer(consumerAlias)
-			if err != nil {
-				return fmt.Errorf("consumer %q: %w", consumerAlias, err)
-			}
-
-			// Resolve linked sources
-			sources, err := reg.ResolveSources(c.ID)
-			if err != nil {
-				return fmt.Errorf("resolve sources: %w", err)
-			}
-
-			// Build source alias map and source ID list
-			srcAliasByID := make(map[uuid.UUID]string)
-			var sourceIDs []uuid.UUID
-			for _, s := range sources {
-				sourceIDs = append(sourceIDs, s.ID)
-				srcAliasByID[s.ID] = s.Alias
-			}
-
-			// Get all entries from linked sources
-			entries, err := reg.ResolveEntries(sourceIDs)
-			if err != nil {
-				return fmt.Errorf("resolve entries: %w", err)
-			}
-
-			// Get all slots for this consumer
-			slots, err := reg.ResolveSlots(c.ID)
-			if err != nil {
-				return fmt.Errorf("resolve slots: %w", err)
-			}
-
-			// Build set of entry IDs linked to any slot
-			linked := make(map[uuid.UUID]bool)
-			for _, slot := range slots {
-				slotEntries, err := reg.ResolveEntrySlots(slot.ID)
-				if err != nil {
-					return fmt.Errorf("resolve entry slots for %q: %w", slot.Name, err)
-				}
-				for _, se := range slotEntries {
-					linked[se.ID] = true
-				}
-			}
-
-			// Build exclude set
-			excludeSet := make(map[string]bool)
-			for _, ex := range exclude {
-				excludeSet[ex] = true
-			}
-
-			// Compute unwired: entries not linked to any slot, excluding filtered ones
-			var unwired []registry.Entry
-			for _, e := range entries {
-				if linked[e.ID] {
-					continue
-				}
-				compound := fmt.Sprintf("%s:%s:%s", srcAliasByID[e.SourceID], typeNameStr(e.Type), e.Name)
-				if excludeSet[compound] {
-					continue
-				}
-				unwired = append(unwired, e)
-			}
-
-			// Dry run: print and exit
-			if dryRun {
-				if len(unwired) == 0 {
-					fmt.Println("no unwired entries")
-				} else {
-					fmt.Printf("unwired entries (%d):\n", len(unwired))
-					for _, e := range unwired {
-						compound := fmt.Sprintf("%s:%s:%s", srcAliasByID[e.SourceID], typeNameStr(e.Type), e.Name)
-						fmt.Printf("  %s\n", compound)
-					}
-				}
-				return nil
-			}
-
-			// Build slot name → slot index
-			slotByName := make(map[string]registry.Slot)
-			for _, s := range slots {
-				slotByName[s.Name] = s
-			}
-
-			wired := 0
-			created := 0
-			for _, e := range unwired {
-				// Determine slot name, compose mode, and dest path
-				var slotName string
-				var composeMode registry.ComposeMode
-				var destPath string
-
-				if e.Type == registry.TypeAppendSystem {
-					slotName = "APPEND_SYSTEM.md"
-					composeMode = registry.ModeConcatenation
-					destPath = "omp/APPEND_SYSTEM.md"
-				} else {
-					slotName = e.Name
-					composeMode = registry.ModeOverride
-					destPath = e.RelativePath
-				}
-
-				// Find or create slot
-				slot, ok := slotByName[slotName]
-				if !ok {
-					cm := composeMode
-					slot = registry.Slot{
-						ID:          uuid.New(),
-						ConsumerID:  c.ID,
-						Name:        slotName,
-						DestPath:    destPath,
-						ComposeMode: &cm,
-					}
-					if err := reg.RegisterSlot(slot); err != nil {
-						return fmt.Errorf("register slot %q: %w", slotName, err)
-					}
-					slotByName[slotName] = slot
-					created++
-				}
-
-				// Link entry to slot
-				if err := reg.LinkEntrySlot(e.ID, slot.ID, 0); err != nil {
-					return fmt.Errorf("link entry %q to slot %q: %w", e.Name, slotName, err)
-				}
-				wired++
-			}
-
-			if created > 0 {
-				fmt.Printf("created %d slot(s), ", created)
-			}
-			fmt.Printf("wired %d entries to slots for %s\n", wired, consumerAlias)
-			return nil
+			return runSlotSyncAll(reg, consumerAlias, dryRun, exclude)
 		},
 	}
 
@@ -298,4 +169,137 @@ func slotSyncAllCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "Compound IDs to exclude (source:type:name)")
 
 	return cmd
+}
+
+func runSlotSyncAll(reg registry.Registry, consumerAlias string, dryRun bool, exclude []string) error {
+	c, err := reg.ResolveConsumer(consumerAlias)
+	if err != nil {
+		return fmt.Errorf("consumer %q: %w", consumerAlias, err)
+	}
+
+	// Resolve linked sources
+	sources, err := reg.ResolveSources(c.ID)
+	if err != nil {
+		return fmt.Errorf("resolve sources: %w", err)
+	}
+
+	// Build source alias map and source ID list
+	srcAliasByID := make(map[uuid.UUID]string)
+	var sourceIDs []uuid.UUID
+	for _, s := range sources {
+		sourceIDs = append(sourceIDs, s.ID)
+		srcAliasByID[s.ID] = s.Alias
+	}
+
+	// Get all entries from linked sources
+	entries, err := reg.ResolveEntries(sourceIDs)
+	if err != nil {
+		return fmt.Errorf("resolve entries: %w", err)
+	}
+
+	// Get all slots for this consumer
+	slots, err := reg.ResolveSlots(c.ID)
+	if err != nil {
+		return fmt.Errorf("resolve slots: %w", err)
+	}
+
+	// Build set of entry IDs linked to any slot
+	linked := make(map[uuid.UUID]bool)
+	for _, slot := range slots {
+		slotEntries, err := reg.ResolveEntrySlots(slot.ID)
+		if err != nil {
+			return fmt.Errorf("resolve entry slots for %q: %w", slot.Name, err)
+		}
+		for _, se := range slotEntries {
+			linked[se.ID] = true
+		}
+	}
+
+	// Build exclude set
+	excludeSet := make(map[string]bool)
+	for _, ex := range exclude {
+		excludeSet[ex] = true
+	}
+
+	// Compute unwired: entries not linked to any slot, excluding filtered ones
+	var unwired []registry.Entry
+	for _, e := range entries {
+		if linked[e.ID] {
+			continue
+		}
+		compound := fmt.Sprintf("%s:%s:%s", srcAliasByID[e.SourceID], typeNameStr(e.Type), e.Name)
+		if excludeSet[compound] {
+			continue
+		}
+		unwired = append(unwired, e)
+	}
+
+	// Dry run: print and exit
+	if dryRun {
+		if len(unwired) == 0 {
+			fmt.Println("no unwired entries")
+		} else {
+			fmt.Printf("unwired entries (%d):\n", len(unwired))
+			for _, e := range unwired {
+				compound := fmt.Sprintf("%s:%s:%s", srcAliasByID[e.SourceID], typeNameStr(e.Type), e.Name)
+				fmt.Printf("  %s\n", compound)
+			}
+		}
+		return nil
+	}
+
+	// Build slot name → slot index
+	slotByName := make(map[string]registry.Slot)
+	for _, s := range slots {
+		slotByName[s.Name] = s
+	}
+
+	wired := 0
+	created := 0
+	for _, e := range unwired {
+		// Determine slot name, compose mode, and dest path
+		var slotName string
+		var composeMode registry.ComposeMode
+		var destPath string
+
+		if e.Type == registry.TypeAppendSystem {
+			slotName = "APPEND_SYSTEM.md"
+			composeMode = registry.ModeConcatenation
+			destPath = "omp/APPEND_SYSTEM.md"
+		} else {
+			slotName = e.Name
+			composeMode = registry.ModeOverride
+			destPath = e.RelativePath
+		}
+
+		// Find or create slot
+		slot, ok := slotByName[slotName]
+		if !ok {
+			cm := composeMode
+			slot = registry.Slot{
+				ID:          uuid.New(),
+				ConsumerID:  c.ID,
+				Name:        slotName,
+				DestPath:    destPath,
+				ComposeMode: &cm,
+			}
+			if err := reg.RegisterSlot(slot); err != nil {
+				return fmt.Errorf("register slot %q: %w", slotName, err)
+			}
+			slotByName[slotName] = slot
+			created++
+		}
+
+		// Link entry to slot
+		if err := reg.LinkEntrySlot(e.ID, slot.ID, 0); err != nil {
+			return fmt.Errorf("link entry %q to slot %q: %w", e.Name, slotName, err)
+		}
+		wired++
+	}
+
+	if created > 0 {
+		fmt.Printf("created %d slot(s), ", created)
+	}
+	fmt.Printf("wired %d entries to slots for %s\n", wired, consumerAlias)
+	return nil
 }
