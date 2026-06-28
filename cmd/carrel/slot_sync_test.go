@@ -262,21 +262,21 @@ func TestRemovedCommands(t *testing.T) {
 	rootCmd := &cobra.Command{Use: "carrel"}
 	rootCmd.AddCommand(configCmd())
 
-	// "config edit" should be unknown
-	_, _, err := rootCmd.Find([]string{"config", "edit"})
-	if err == nil {
-		t.Error("expected error for 'config edit', got nil")
+	// "config edit" should be unknown — subcommand removed
+	cmd, _, err := rootCmd.Find([]string{"config", "edit"})
+	if err == nil && cmd.Name() == "edit" {
+		t.Error("'config edit' should be unknown but edit command was found")
 	}
 
-	// "config update" should be unknown
-	_, _, err = rootCmd.Find([]string{"config", "update"})
-	if err == nil {
-		t.Error("expected error for 'config update', got nil")
+	// "config update" should be unknown — subcommand removed
+	cmd, _, err = rootCmd.Find([]string{"config", "update"})
+	if err == nil && cmd.Name() == "update" {
+		t.Error("'config update' should be unknown but update command was found")
 	}
 
-	// "verify" should be unknown
+	// "verify" should be unknown — command removed
 	_, _, err = rootCmd.Find([]string{"verify"})
 	if err == nil {
-		t.Error("expected error for 'verify', got nil")
+		t.Error("'verify' should be unknown but verify command was found")
 	}
 }
