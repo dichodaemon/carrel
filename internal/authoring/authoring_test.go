@@ -256,3 +256,70 @@ func TestAddEntryIdempotent(t *testing.T) {
 		t.Errorf("file content = %q, want %q", string(data), string(content2))
 	}
 }
+
+func TestRemoveEntryUnlinksSlots(t *testing.T) {
+	reg, source := setup(t)
+
+	content := []byte("# A rule\n")
+	entry, err := AddEntry(reg, registry.TypeRule, "my-rule", "test-source", content)
+	if err != nil {
+		t.Fatalf("AddEntry: %v", err)
+	}
+
+	// Create a consumer and link to source.
+	consumer := registry.Consumer{
+		ID:    uuid.New(),
+		Alias: "test-consumer",
+		Path:  "/workspace/test-consumer",
+		Kind:  registry.ConsumerRepo,
+	}
+	if err := reg.RegisterConsumer(consumer); err != nil {
+		t.Fatalf("RegisterConsumer: %v", err)
+	}
+	if err := reg.LinkConsumerSource(consumer.ID, source.ID); err != nil {
+		t.Fatalf("LinkConsumerSource: %v", err)
+	}
+
+	// Create a slot and link entry to slot.
+	slot := registry.Slot{
+		ID:         uuid.New(),
+		ConsumerID: consumer.ID,
+		Name:       "my-slot",
+		DestPath:   "my-slot.md",
+	}
+	if err := reg.RegisterSlot(slot); err != nil {
+		t.Fatalf("RegisterSlot: %v", err)
+	}
+	if err := reg.LinkEntrySlot(entry.ID, slot.ID, 0); err != nil {
+		t.Fatalf("LinkEntrySlot: %v", err)
+	}
+
+	// Remove the entry.
+	if err := RemoveEntry(reg, registry.TypeRule, "my-rule"); err != nil {
+		t.Fatalf("RemoveEntry: %v", err)
+	}
+
+	// Verify entry is gone from registry.
+	entries, err := reg.ResolveEntries([]uuid.UUID{source.ID})
+	if err != nil {
+		t.Fatalf("ResolveEntries: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("got %d entries after remove, want 0", len(entries))
+	}
+
+	// Verify slot links are gone.
+	slotEntries, err := reg.ResolveEntrySlots(slot.ID)
+	if err != nil {
+		t.Fatalf("ResolveEntrySlots: %v", err)
+	}
+	if len(slotEntries) != 0 {
+		t.Errorf("got %d slot entries after remove, want 0", len(slotEntries))
+	}
+
+	// Verify source file is deleted.
+	fullPath := filepath.Join(source.Path, entry.RelativePath)
+	if _, err := os.Stat(fullPath); !os.IsNotExist(err) {
+		t.Errorf("file should not exist after remove: %v", err)
+	}
+}
