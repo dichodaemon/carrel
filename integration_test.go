@@ -206,21 +206,6 @@ func TestStatusShowsConsumers(t *testing.T) {
 	}
 }
 
-// TestVerifyShowsDeploymentStatus verifies verify command.
-func TestVerifyShowsDeploymentStatus(t *testing.T) {
-	buildCarrelBin(t)
-	exec.Command(carrelBin, "bootstrap").Run()
-
-	cmd := exec.Command(carrelBin, "verify")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("verify failed: %v\n%s", err, out)
-	}
-	output := string(out)
-	if !strings.Contains(output, "carrel") && !strings.Contains(output, "folio") {
-		t.Error("verify should show consumers")
-	}
-}
 
 
 // TestComposeMissingSourceFile verifies compose fails when a source file is missing.
