@@ -196,37 +196,6 @@ func (r *DoltRegistry) RemoveEntry(entryID uuid.UUID) error {
 	return nil
 }
 
-// UpdateEntryMeta implements Registry.
-func (r *DoltRegistry) UpdateEntryMeta(entryID uuid.UUID, updates MetaUpdates) error {
-	if updates.ComposeMode == nil {
-		return nil
-	}
-	setClauses := []string{}
-	args := []interface{}{}
-	if updates.ComposeMode != nil {
-		setClauses = append(setClauses, "compose_mode = ?")
-		args = append(args, int(**updates.ComposeMode))
-	}
-	query := "UPDATE entries SET "
-	for i, clause := range setClauses {
-		if i > 0 {
-			query += ", "
-		}
-		query += clause
-	}
-	query += " WHERE id = ?"
-	args = append(args, entryID.String())
-	result, err := r.db.Exec(query, args...)
-	if err != nil {
-		return err
-	}
-	n, _ := result.RowsAffected()
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
 // RecordDeployment implements Registry.
 func (r *DoltRegistry) RecordDeployment(d Deployment, entries []DeploymentEntry) error {
 	_, err := r.db.Exec(

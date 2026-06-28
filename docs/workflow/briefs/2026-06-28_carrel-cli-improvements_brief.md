@@ -42,6 +42,8 @@ both humans and agents can manage OMP configuration confidently.
 2. Collapse `config edit` into `config add` (make `add` idempotent via source+type+name lookup).
 3. Rename `config scan` to `config scan-sources` to clarify it discovers new entries only, not hash resyncs.
 4. Make `carrel run` recompute content hashes from disk before deploying — eliminating stale-hash bugs and making the hash transparent to agents.
+
+   > **Implementation note:** `resolveOutputContent` in `cmd/carrel/run.go` already reads source files from disk and computes `ContentHash` at deploy time. The brief's investigation predated discovery of this existing behavior. No code change was required for hash recomputation.
 5. Add `carrel slot sync-all [--exclude <compound-id>] [--dry-run]` for bulk wiring of unwired entries.
 6. Remove `slot-defaults.yml` from the registry (registered as `append-system` but consumed as a slot declarations file directly from disk — the registry entry serves no purpose).
 7. Ensure `config rm` unlinks the entry from all slots.

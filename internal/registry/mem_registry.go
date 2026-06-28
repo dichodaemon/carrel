@@ -166,20 +166,6 @@ func (m *MemRegistry) RemoveEntry(entryID uuid.UUID) error {
 	return nil
 }
 
-func (m *MemRegistry) UpdateEntryMeta(entryID uuid.UUID, updates MetaUpdates) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	e, ok := m.entries[entryID]
-	if !ok {
-		return ErrNotFound
-	}
-	if updates.ComposeMode != nil {
-		e.ComposeMode = **updates.ComposeMode
-	}
-	m.entries[entryID] = e
-	return nil
-}
-
 func (m *MemRegistry) RecordDeployment(d Deployment, entries []DeploymentEntry) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

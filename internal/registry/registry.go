@@ -20,7 +20,6 @@ type Registry interface {
 	RegisterEntry(entry Entry) error
 	ResolveEntries(sourceIDs []uuid.UUID) ([]Entry, error)
 	RemoveEntry(entryID uuid.UUID) error
-	UpdateEntryMeta(entryID uuid.UUID, updates MetaUpdates) error
 
 	// Deployment operations
 	RecordDeployment(deployment Deployment, entries []DeploymentEntry) error
@@ -42,10 +41,6 @@ type Registry interface {
 	Close() error
 }
 
-// MetaUpdates carries optional metadata changes for UpdateEntryMeta.
-type MetaUpdates struct {
-	ComposeMode **ComposeMode // double pointer: nil = no change, *nil = clear, set = update
-}
 
 // Common errors.
 var (
