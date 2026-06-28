@@ -1,6 +1,6 @@
 ---
 title: Carrel CLI Improvements -- Implementation Plan
-status: approved
+status: issued
 date: 2026-06-28
 author: Dizan Vasquez
 brief: ../briefs/2026-06-28_carrel-cli-improvements_brief.md

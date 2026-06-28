@@ -70,6 +70,10 @@ func RemoveEntry(reg registry.Registry, typ registry.CapabilityType, name string
 		return err
 	}
 
+	if err := reg.UnlinkAllEntrySlots(entry.ID); err != nil {
+		return fmt.Errorf("unlink entry slots: %w", err)
+	}
+
 	fullPath := filepath.Join(source.Path, entry.RelativePath)
 	if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove %s: %w", fullPath, err)

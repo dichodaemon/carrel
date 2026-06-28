@@ -424,3 +424,59 @@ func TestDoltRegistry(t *testing.T) {
 		}
 	})
 }
+
+func TestUnlinkAllEntrySlots(t *testing.T) {
+	reg := registry.NewMemRegistry()
+	defer reg.Close()
+
+	// Setup: register a source, entry, and slot.
+	s := registry.Source{ID: uuid.New(), Alias: "s", Path: "/s"}
+	if err := reg.RegisterSource(s); err != nil {
+		t.Fatalf("RegisterSource: %v", err)
+	}
+
+	e := registry.Entry{
+		ID:           uuid.New(),
+		SourceID:     s.ID,
+		Name:         "rule",
+		Type:         registry.TypeRule,
+		RelativePath: "r.md",
+	}
+	if err := reg.RegisterEntry(e); err != nil {
+		t.Fatalf("RegisterEntry: %v", err)
+	}
+
+	c := registry.Consumer{ID: uuid.New(), Alias: "c", Path: "/c"}
+	if err := reg.RegisterConsumer(c); err != nil {
+		t.Fatalf("RegisterConsumer: %v", err)
+	}
+
+	slot := registry.Slot{ID: uuid.New(), ConsumerID: c.ID, Name: "rule", DestPath: "r.md"}
+	if err := reg.RegisterSlot(slot); err != nil {
+		t.Fatalf("RegisterSlot: %v", err)
+	}
+
+	// Link entry to slot.
+	if err := reg.LinkEntrySlot(e.ID, slot.ID, 0); err != nil {
+		t.Fatalf("LinkEntrySlot: %v", err)
+	}
+
+	// Unlink all entry slots.
+	if err := reg.UnlinkAllEntrySlots(e.ID); err != nil {
+		t.Fatalf("UnlinkAllEntrySlots: %v", err)
+	}
+
+	// Verify zero slot links remain.
+	entries, err := reg.ResolveEntrySlots(slot.ID)
+	if err != nil {
+		t.Fatalf("ResolveEntrySlots: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("got %d entries after UnlinkAllEntrySlots, want 0", len(entries))
+	}
+
+	// UnlinkAllEntrySlots on a nonexistent entry should be a no-op, no error.
+	if err := reg.UnlinkAllEntrySlots(uuid.New()); err != nil {
+		t.Errorf("UnlinkAllEntrySlots on nonexistent entry: got %v, want nil", err)
+	}
+}

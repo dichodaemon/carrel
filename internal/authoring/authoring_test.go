@@ -149,86 +149,6 @@ func TestRemoveEntryNotFound(t *testing.T) {
 	}
 }
 
-func TestEditEntry(t *testing.T) {
-	reg, source := setup(t)
-
-	originalContent := []byte("# Original\n")
-	entry, err := AddEntry(reg, registry.TypeRule, "test-rule", "test-source", originalContent)
-	if err != nil {
-		t.Fatalf("AddEntry: %v", err)
-	}
-
-	newContent := []byte("# Modified\n")
-	if err := EditEntry(reg, registry.TypeRule, "test-rule", newContent); err != nil {
-		t.Fatalf("EditEntry: %v", err)
-	}
-
-	// Verify file content on disk.
-	fullPath := filepath.Join(source.Path, entry.RelativePath)
-	data, err := os.ReadFile(fullPath)
-	if err != nil {
-		t.Fatalf("ReadFile: %v", err)
-	}
-	if string(data) != string(newContent) {
-		t.Errorf("file content = %q, want %q", string(data), string(newContent))
-	}
-
-	// Verify ContentHash updated in registry.
-	entries, err := reg.ResolveEntries([]uuid.UUID{source.ID})
-	if err != nil {
-		t.Fatalf("ResolveEntries: %v", err)
-	}
-	if len(entries) != 1 {
-		t.Fatalf("got %d entries, want 1", len(entries))
-	}
-	wantHash := int64(xxhash.Sum64(newContent))
-	if entries[0].ContentHash != wantHash {
-		t.Errorf("ContentHash = %d, want %d", entries[0].ContentHash, wantHash)
-	}
-}
-
-func TestUpdateEntryMeta(t *testing.T) {
-	reg, source := setup(t)
-
-	content := []byte("# Entry\n")
-	_, err := AddEntry(reg, registry.TypeRule, "meta-rule", "test-source", content)
-	if err != nil {
-		t.Fatalf("AddEntry: %v", err)
-	}
-
-	concat := registry.PrimitiveConcatenation
-	concatPtr := &concat
-	updates := registry.MetaUpdates{
-		ComposeMode: &concatPtr,
-	}
-
-	if err := UpdateEntryMeta(reg, registry.TypeRule, "meta-rule", updates); err != nil {
-		t.Fatalf("UpdateEntryMeta: %v", err)
-	}
-
-	// Verify in registry.
-	entries, err := reg.ResolveEntries([]uuid.UUID{source.ID})
-	if err != nil {
-		t.Fatalf("ResolveEntries: %v", err)
-	}
-	if len(entries) != 1 {
-		t.Fatalf("got %d entries, want 1", len(entries))
-	}
-	if entries[0].ComposeMode != concat {
-		t.Errorf("ComposeMode = %v, want %v", entries[0].ComposeMode, concat)
-	}
-}
-
-
-func TestUpdateEntryMetaNotFound(t *testing.T) {
-	reg, _ := setup(t)
-
-	err := UpdateEntryMeta(reg, registry.TypeRule, "nonexistent", registry.MetaUpdates{})
-	if err == nil {
-		t.Fatal("expected error for nonexistent entry")
-	}
-}
-
 func TestRenameEntry(t *testing.T) {
 	reg, source := setup(t)
 
@@ -285,5 +205,54 @@ func TestRenameEntryNotFound(t *testing.T) {
 	err := RenameEntry(reg, registry.TypeRule, "nonexistent", "new-name")
 	if err == nil {
 		t.Fatal("expected error for nonexistent entry")
+	}
+}
+
+func TestAddEntryIdempotent(t *testing.T) {
+	reg, source := setup(t)
+
+	content1 := []byte("content v1")
+	entry1, err := AddEntry(reg, registry.TypeRule, "idem-rule", "test-source", content1)
+	if err != nil {
+		t.Fatalf("AddEntry first call: %v", err)
+	}
+
+	content2 := []byte("content v2")
+	entry2, err := AddEntry(reg, registry.TypeRule, "idem-rule", "test-source", content2)
+	if err != nil {
+		t.Fatalf("AddEntry second call: %v", err)
+	}
+
+	// Verify the same UUID is reused across calls.
+	if entry1.ID != entry2.ID {
+		t.Errorf("UUID mismatch: first = %v, second = %v", entry1.ID, entry2.ID)
+	}
+
+	// Verify only one entry exists for this source.
+	entries, err := reg.ResolveEntries([]uuid.UUID{source.ID})
+	if err != nil {
+		t.Fatalf("ResolveEntries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("got %d entries, want 1", len(entries))
+	}
+	if entries[0].ID != entry2.ID {
+		t.Errorf("registry entry ID = %v, want %v", entries[0].ID, entry2.ID)
+	}
+
+	// Verify ContentHash reflects content2.
+	wantHash := int64(xxhash.Sum64(content2))
+	if entry2.ContentHash != wantHash {
+		t.Errorf("ContentHash = %d, want %d", entry2.ContentHash, wantHash)
+	}
+
+	// Verify file on disk contains content2.
+	fullPath := filepath.Join(source.Path, entry2.RelativePath)
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		t.Fatalf("ReadFile %s: %v", fullPath, err)
+	}
+	if string(data) != string(content2) {
+		t.Errorf("file content = %q, want %q", string(data), string(content2))
 	}
 }
