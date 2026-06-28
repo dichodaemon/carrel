@@ -32,3 +32,18 @@ slots:
       compose: override
       entries:
         - ref: carrel-omp:skill:rebase-pr-tree
+    - name: create-plan
+      dest: skills/create-plan/SKILL.md
+      compose: override
+      entries:
+        - ref: carrel-omp:skill:create-plan
+    - name: audit-plan
+      dest: skills/audit-plan/SKILL.md
+      compose: override
+      entries:
+        - ref: carrel-omp:skill:audit-plan
+    - name: execute-plan
+      dest: skills/execute-plan/SKILL.md
+      compose: override
+      entries:
+        - ref: carrel-omp:skill:execute-plan
