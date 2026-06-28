@@ -79,4 +79,26 @@ carrel slot sync-all --dry-run
 
 This shows which unwired entries would be linked to slots without applying any changes. Useful for verifying that your newly added or updated entry will be deployed before running the full chain.
 
+
+---
+
+## 4. Discovering new universal entries in other repos
+
+When you register a new entry in the carrel universal source (via `carrel config add --file=`), other consumers do not see it automatically. Each consumer maintains its own view of linked sources. The new entry's files exist on disk but the consumer hasn't scanned them yet.
+
+To make new universal entries visible to a target consumer, run a source scan from that consumer's directory:
+
+```bash
+# From the target repo:
+carrel config scan-sources carrel-omp
+```
+
+This walks the `carrel-omp` source directory, discovers new files, and registers them in the consumer's view. After scanning, `carrel slot sync-all` finds the entries and wires them to slots:
+
+```bash
+carrel slot sync-all
+carrel run
+```
+
+The full workflow for the authoring repo (carrel) is simpler — `add --file=` registers entries directly and they appear on the next deploy. But other consumers need the extra `scan-sources` step because they discover entries by walking the source directory, not from the registry directly.
 ---

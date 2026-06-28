@@ -51,6 +51,8 @@ The streamlined workflow for agents to manage OMP configuration:
 2. **Register** — `carrel config add <type> <name> --file=<path>` (idempotent; re-running is safe)
 3. **Wire to slots** — `carrel slot sync-all` (links new entries to deployment slots, --dry-run to preview)
 4. **Deploy** — `carrel run` (composes, deploys, execs OMP)
+
+> **Note for non-carrel consumers:** step 3 only sees entries the consumer has discovered. If adding entries from the carrel source to another repo, run `carrel config scan-sources carrel-omp` first.
 ## Key rules
 
 - **Never edit `.omp/` directly.** It is deployed by `carrel run`. Changes are overwritten.
