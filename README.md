@@ -35,11 +35,10 @@ carrel bootstrap          # Initialize registry
 carrel run [--dry-run]    # Compose, deploy, exec OMP
 carrel discover           # Scan workspace for repos
 carrel status             # Show registry state
-carrel verify             # Check deployed state
 carrel os-setup           # Deploy OS tool config in container
 carrel host-setup         # Deploy OS tool config on host
 carrel dashboard          # Launch TUI
-carrel <type> add|rm|list|view|edit|update|rename   # Per-type CRUD
+carrel <type> add|rm|list|view|rename   # Per-type CRUD
 ```
 
 ---
@@ -123,7 +122,7 @@ Tests cover:
 - **Deployer** — Collision policies (error/backup/skip), stale cleanup, dry-run, claim recording.
 - **Scanner** — Workspace discovery, source scanning.
 - **Authoring** — Add, remove, edit, update metadata, rename for all capability types.
-- **Integration** — Bootstrap idempotency, consumer registration, discover, run flags, CRUD, status, verify.
+- **Integration** — Bootstrap idempotency, consumer registration, discover, run flags, CRUD, status.
 
 Run from the dev container:
 

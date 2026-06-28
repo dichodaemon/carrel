@@ -42,6 +42,15 @@ Universal sources are inherited by all consumers. Deeper scopes override shallow
 carrel plan          # What would the next deployment produce?
 ```
 
+
+## Agent configuration workflow
+
+The streamlined workflow for agents to manage OMP configuration:
+
+1. **Write the source file** — edit or create the file at the correct path (e.g., `omp/skills/<name>/SKILL.md`)
+2. **Register** — `carrel config add <type> <name> --file=<path>` (idempotent; re-running is safe)
+3. **Wire to slots** — `carrel slot sync-all` (links new entries to deployment slots, --dry-run to preview)
+4. **Deploy** — `carrel run` (composes, deploys, execs OMP)
 ## Key rules
 
 - **Never edit `.omp/` directly.** It is deployed by `carrel run`. Changes are overwritten.
@@ -51,10 +60,7 @@ carrel plan          # What would the next deployment produce?
   - Target-specific: `<target>/.carrel/<type>/` or `<target>-config/omp/<type>/` — only that consumer.
 - **Restart the OMP session** after modifying configuration (most config is loaded at init).
 - **Flag gaps, don't decide them.** When porting or replacing a system, any feature present in the source system that is absent in the target is a gap. Surface it immediately. Do not defer, skip, or mark as "non-critical" without asking.
-- **Three ways to edit source files:**
-  - `carrel config edit <type> <name> --content="..."` — updates file + registry hash atomically.
-  - `carrel config edit <type> <name> --file=<path>` — re-reads the file from disk and updates the registry hash. Use after editing a source file directly with complex multi-line changes.
-  - Edit source file directly, then `carrel config scan <source-alias>` — picks up *new* entries not yet in the registry. **Does not resync hashes for existing entries.** Use `edit --file=` instead for those.
+- **Streamlined workflow:** write source file → `carrel config add --file=` → `carrel slot sync-all` → `carrel run` (see [Agent configuration workflow](#agent-configuration-workflow) above)
 
 ## Available configuration types
 
@@ -108,20 +114,21 @@ carrel config view skill validate --content-only
 
 ### Edit an entry
 
+To update an existing entry, re-run `carrel config add` with `--file`:
+
 ```bash
-carrel config edit rule no-push-master --content='Updated content'
-carrel config edit skill validate --file=./updated-validate.md
+carrel config add rule no-push-master --file=./updated-rule.md
+carrel config add skill validate --file=./updated-validate.md
 ```
 
-Alternatively, edit the source file directly then resync the hash:
+Alternatively, edit the source file directly, then re-register:
 ```bash
-# Re-read the on-disk file and update the registry hash:
-carrel config edit skill validate --file=omp/skills/validate/SKILL.md
+carrel config add skill validate --file=omp/skills/validate/SKILL.md
 ```
 
-**Note:** `carrel config scan` only registers *new* entries. It does
+**Note:** `carrel config scan-sources` only registers *new* entries. It does
 not update hashes for entries already in the registry. After editing
-an existing source file directly, use `edit --file=` to resync.
+an existing source file directly, use `add --file=` to re-register.
 
 
 ### Rename an entry
@@ -152,7 +159,6 @@ carrel trace carrel-omp:rule:carrel-configuration    # Trace composition provena
 carrel feeds <consumer>           # Which sources feed a consumer
 carrel dependents carrel-omp   # Which consumers depend on a source
 carrel status            # Registry state (consumers + sources)
-carrel verify            # Check deployed state against registry claims
 carrel plan              # Preview next deployment output
 carrel discover          # Workspace repos and registration status
 ```

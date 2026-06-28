@@ -57,17 +57,15 @@ updates slot references atomically.
 
 ## Step 3: Resync Registry
 
-After editing the source file, update the registry hash:
+After editing the source file, update the registry:
 
 ```bash
-carrel config edit skill <name> --file=<absolute-path-to-SKILL.md>
+carrel config add skill <name> --file=<absolute-path-to-SKILL.md>
 ```
 
-**This step is mandatory.** `carrel config scan` skips
-already-registered entries — it only picks up new files. Direct edits
-to existing source files require `carrel config edit` to resync the
-registry hash. Without this, `carrel verify` will report drift between
-the source and registry.
+**This step is mandatory.** Direct edits to existing source files
+require `carrel config add --file=` to resync the registry hash.
+Without this, the registry will be out of sync with the source file.
 
 ## Step 4: Verify
 
@@ -80,7 +78,7 @@ carrel config view skill <name> --meta-only
 ```
 
 Confirm the `Hash` value has changed from the value observed in Step 1.
-If the hash is unchanged, the `carrel config edit` in Step 3 did not
+If the hash is unchanged, the `carrel config add --file=` in Step 3 did not
 take effect — re-run it with the correct file path.
 
 ### Check 2: Deployment plan
@@ -107,20 +105,20 @@ git push
 
 After pushing, remind the user:
 
-> Skill `<name>` is updated and pushed. Run `carrel run` from a
-> terminal to deploy the changes. The updated skill will be available
-> after the next OMP session restart.
+> Skill `<name>` is updated and pushed. Run `carrel slot sync-all`
+> then `carrel run` from a terminal to deploy the changes. The
+> updated skill will be available after the next OMP session restart.
 
 ## Rules
 
 - **Never edit `.omp/` directly.** Edit the source file. The `.omp/`
   directory is deployed output and is overwritten on every `carrel run`.
-- **Always resync the registry after editing.** `carrel config scan`
-  does not update existing entries. Use `carrel config edit` to resync
-  the hash. Skipping this leaves the registry stale.
+- **Always resync the registry after editing.** Use `carrel config add --file=`
+  to update the registry hash for existing entries. Skipping this leaves the
+  registry stale.
 - **Use `carrel config rename` for renames.** Do not manually rename
   the directory and re-register. The rename command handles registry,
   file, and slot references atomically.
 - **Verify before committing.** Both checks in Step 4 must pass. A
   committed edit with a stale registry hash creates drift that
-  `carrel verify` will flag.
+  `carrel run` will surface as deployment inconsistencies.

@@ -91,10 +91,10 @@ Structure depends on the complexity tier determined in Step 1.
 
 ## Step 3: Register
 
-Scan the source to pick up the new file:
+Register the new file in the config:
 
 ```bash
-carrel config scan <source-alias>
+carrel config add --file=omp/skills/<name>/SKILL.md
 ```
 
 Verify registration:
@@ -109,11 +109,10 @@ the source's skill directory and that the frontmatter is valid YAML.
 
 ## Step 4: Wire Slot
 
-Create a deployment slot and attach the registry entry:
+Sync all deployment slots (this picks up the newly registered entry):
 
 ```bash
-carrel slot add <name> --dest=skills/<name>/SKILL.md
-carrel slot add-entry <source-alias>:skill:<name> <name>
+carrel slot sync-all
 ```
 
 **This step is mandatory.** A skill that is registered but not slotted
