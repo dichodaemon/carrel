@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for extension entries.
-  Extensions are OMP plugins that add new capabilities to the platform.
-  Use `carrel config add extension <name> --file=omp/extensions/<name>/` to register.
-  Validate with `validate-extension` skill before registering.
+description: "Format, structure, naming, and best practices for extension entries."
 globs:
   - 'omp/extensions/*/'
 ---

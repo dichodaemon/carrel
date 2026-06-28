@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for command entries.
-  Commands define slash-commands that agents and users can invoke during sessions.
-  Use `carrel config add command <name> --file=omp/commands/<name>.yaml` to register.
-  Validate with `validate-command` skill before registering.
+description: "Format, structure, naming, and best practices for command entries."
 globs:
   - 'omp/commands/*.yaml'
   - 'omp/commands/*.yml'

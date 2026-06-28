@@ -1,10 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for WezTerm configuration entries.
-  WezTerm config uses Lua and is deployed via `carrel os-setup` (container)
-  or `carrel host-setup` (host). Configuration is loaded when WezTerm starts.
-  Use `carrel config add wezterm <name> --file=omp/config/wezterm/<name>.lua` to register.
-  Validate with `validate-wezterm` skill before registering.
+description: "Format, structure, naming, and best practices for WezTerm configuration entries."
 globs:
   - 'omp/config/wezterm/*.lua'
   - 'omp/config/wezterm/*.terminfo'

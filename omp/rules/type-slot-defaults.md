@@ -1,11 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for slot-defaults entries.
-  Slot-defaults define default entry-to-slot wiring for consumers that haven't
-  declared their own `.carrel/slots.yml`. They ensure universal entries are
-  deployed correctly without requiring per-consumer slot configuration.
-  Use `carrel config add slot-defaults <name> --file=omp/slot-defaults.yml` to register.
-  Validate with `validate-slot-defaults` skill before registering.
+description: "Format, structure, naming, and best practices for slot-defaults entries."
 globs:
   - 'omp/slot-defaults.yml'
 ---

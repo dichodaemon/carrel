@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for instruction entries.
-  Instructions inject procedural or reference content into agent sessions.
-  Use `carrel config add instruction <name> --file=omp/instructions/<name>.md` to register.
-  Validate with `validate-instruction` skill before registering.
+description: "Format, structure, naming, and best practices for instruction entries."
 globs:
   - 'omp/instructions/*.md'
 ---

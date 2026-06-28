@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for agent entries.
-  Agent entries define personality, model, and provider configuration for OMP agent sessions.
-  Use `carrel config add agent <name> --file=omp/agents/<name>.yaml` to register.
-  Validate with `validate-agent` skill before registering.
+description: "Format, structure, naming, and best practices for agent entries."
 globs:
   - 'omp/agents/*.yaml'
   - 'omp/agents/*.yml'

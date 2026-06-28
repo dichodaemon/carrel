@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for rule entries.
-  Rules govern agent behavior — conventions, constraints, and prohibitions.
-  Use `carrel config add rule <name> --file=omp/rules/<name>.md` to register.
-  Validate with `validate-rule` skill before registering.
+description: "Format, structure, naming, and best practices for rule entries."
 globs:
   - 'omp/rules/*.md'
 ---

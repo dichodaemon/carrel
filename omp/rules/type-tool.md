@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for tool entries.
-  Tools define external integrations available to agents during sessions.
-  Use `carrel config add tool <name> --file=omp/tools/<name>.yaml` to register.
-  Validate with `validate-tool` skill before registering.
+description: "Format, structure, naming, and best practices for tool entries."
 globs:
   - 'omp/tools/*.yaml'
   - 'omp/tools/*.yml'

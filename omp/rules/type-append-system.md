@@ -1,11 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for append-system entries.
-  Append-system content is concatenated across all sources and injected into
-  the agent's system prompt. Multiple append-system entries compose — they do
-  not override. Use this type for additive system prompt content.
-  Use `carrel config add append-system <name> --file=omp/<name>.md` to register.
-  Validate with `validate-append-system` skill before registering.
+description: "Format, structure, naming, and best practices for append-system entries."
 globs:
   - 'omp/*.md'
 ---

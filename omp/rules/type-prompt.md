@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for prompt entries.
-  Prompts are reusable templates for common agent interactions.
-  Use `carrel config add prompt <name> --file=omp/prompts/<name>.md` to register.
-  Validate with `validate-prompt` skill before registering.
+description: "Format, structure, naming, and best practices for prompt entries."
 globs:
   - 'omp/prompts/*.md'
 ---

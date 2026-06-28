@@ -1,10 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for Neovim (nvim) configuration entries.
-  Nvim config uses Lua and is deployed via `carrel os-setup` (container)
-  or `carrel host-setup` (host). Configuration is loaded when Neovim starts.
-  Use `carrel config add nvim <name> --file=omp/config/nvim/<name>.lua` to register.
-  Validate with `validate-nvim` skill before registering.
+description: "Format, structure, naming, and best practices for Neovim (nvim) configuration entries."
 globs:
   - 'omp/config/nvim/*.lua'
   - 'omp/config/nvim/*.vim'

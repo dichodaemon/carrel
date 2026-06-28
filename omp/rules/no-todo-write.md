@@ -1,5 +1,5 @@
 ---
-ttsr_trigger: "todo_write"
+description: "Do not use todo_write; use bd (beads) for all task tracking."
 ---
 
 Do not use the `todo_write` tool. Use `bd` (beads) for all task tracking instead.

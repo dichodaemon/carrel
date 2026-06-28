@@ -1,10 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for Helix editor configuration entries.
-  Helix config uses TOML and is deployed via `carrel os-setup` (container)
-  or `carrel host-setup` (host). Configuration is loaded when Helix starts.
-  Use `carrel config add helix <name> --file=omp/config/helix/<name>.toml` to register.
-  Validate with `validate-helix` skill before registering.
+description: "Format, structure, naming, and best practices for Helix editor configuration entries."
 globs:
   - 'omp/config/helix/*.toml'
 ---

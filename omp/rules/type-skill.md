@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for skill entries.
-  Skills are specialized agent workflows injected at session startup.
-  Use `carrel config add skill <name> --file=omp/skills/<name>/SKILL.md` to register.
-  Validate with `validate-skill` skill before registering.
+description: "Format, structure, naming, and best practices for skill entries."
 globs:
   - 'omp/skills/*/SKILL.md'
 ---

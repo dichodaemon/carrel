@@ -1,10 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for zsh configuration entries.
-  Zsh config is deployed to the shell environment via `carrel os-setup` (container)
-  or `carrel host-setup` (host). Files are sourced at shell startup.
-  Use `carrel config add zsh <name> --file=omp/config/zsh/<name>.zsh` to register.
-  Validate with `validate-zsh` skill before registering.
+description: "Format, structure, naming, and best practices for zsh configuration entries."
 globs:
   - 'omp/config/zsh/*.zsh'
   - 'omp/config/zsh/*.sh'

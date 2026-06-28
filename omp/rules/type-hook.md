@@ -1,9 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for hook entries.
-  Hooks are lifecycle scripts that run before or after session operations.
-  Use `carrel config add hook <name> --file=omp/hooks/<name>.sh` to register.
-  Validate with `validate-hook` skill before registering.
+description: "Format, structure, naming, and best practices for hook entries."
 globs:
   - 'omp/hooks/*.sh'
   - 'omp/hooks/*.bash'

@@ -1,10 +1,5 @@
 ---
-description: >
-  Format, structure, naming, and best practices for Powerlevel10k (p10k) configuration entries.
-  P10k config customizes the Zsh prompt theme and is deployed via `carrel os-setup`
-  (container) or `carrel host-setup` (host). Configuration is loaded when Zsh starts.
-  Use `carrel config add p10k <name> --file=omp/config/zsh/<name>.zsh` to register.
-  Validate with `validate-p10k` skill before registering.
+description: "Format, structure, naming, and best practices for Powerlevel10k (p10k) configuration entries."
 globs:
   - 'omp/config/zsh/p10k*.zsh'
 ---
