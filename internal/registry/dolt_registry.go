@@ -405,6 +405,12 @@ func (r *DoltRegistry) UnlinkEntrySlot(entryID, slotID uuid.UUID) error {
 	return nil
 }
 
+// UnlinkAllEntrySlots implements Registry.
+func (r *DoltRegistry) UnlinkAllEntrySlots(entryID uuid.UUID) error {
+	_, err := r.db.Exec(`DELETE FROM entry_slots WHERE entry_id = ?`, entryID.String())
+	return err
+}
+
 // ResolveEntrySlots implements Registry.
 func (r *DoltRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]SlotEntry, error) {
 	rows, err := r.db.Query(

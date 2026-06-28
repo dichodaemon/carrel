@@ -35,6 +35,7 @@ type Registry interface {
 	// Entry-slot operations
 	LinkEntrySlot(entryID, slotID uuid.UUID, priority int) error
 	UnlinkEntrySlot(entryID, slotID uuid.UUID) error
+	UnlinkAllEntrySlots(entryID uuid.UUID) error
 	ResolveEntrySlots(slotID uuid.UUID) ([]SlotEntry, error)
 
 	// Lifecycle

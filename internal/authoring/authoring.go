@@ -25,13 +25,29 @@ func AddEntry(reg registry.Registry, typ registry.CapabilityType, name string, s
 		return registry.Entry{}, err
 	}
 
+	// Check for existing entry matching (source, type, name) to enable idempotent add.
+	existing, err := reg.ResolveEntries([]uuid.UUID{source.ID})
+	if err != nil {
+		return registry.Entry{}, fmt.Errorf("resolve entries: %w", err)
+	}
+	var entryID uuid.UUID
+	for _, e := range existing {
+		if e.Type == typ && e.Name == name {
+			entryID = e.ID
+			break
+		}
+	}
+	if entryID == uuid.Nil {
+		entryID = uuid.New()
+	}
+
 	fullPath := filepath.Join(source.Path, relPath)
 	if err := writeFile(fullPath, content); err != nil {
 		return registry.Entry{}, err
 	}
 
 	entry := registry.Entry{
-		ID:           uuid.New(),
+		ID:           entryID,
 		SourceID:     source.ID,
 		Name:         name,
 		Type:         typ,
@@ -66,42 +82,7 @@ func RemoveEntry(reg registry.Registry, typ registry.CapabilityType, name string
 	return nil
 }
 
-// EditEntry overwrites the file content and updates the ContentHash in the registry.
-func EditEntry(reg registry.Registry, typ registry.CapabilityType, name string, newContent []byte) error {
-	entry, source, err := FindEntry(reg, typ, name)
-	if err != nil {
-		return err
-	}
 
-	fullPath := filepath.Join(source.Path, entry.RelativePath)
-	if err := writeFile(fullPath, newContent); err != nil {
-		return err
-	}
-
-	newHash := int64(xxhash.Sum64(newContent))
-	entry.ContentHash = newHash
-
-	// Re-register to update the stored entry.
-	if err := reg.RegisterEntry(entry); err != nil {
-		return fmt.Errorf("re-register entry: %w", err)
-	}
-
-	return nil
-}
-
-// UpdateEntryMeta updates metadata fields (Final, PrimitiveOverride) on an entry.
-func UpdateEntryMeta(reg registry.Registry, typ registry.CapabilityType, name string, updates registry.MetaUpdates) error {
-	entry, _, err := FindEntry(reg, typ, name)
-	if err != nil {
-		return err
-	}
-
-	if err := reg.UpdateEntryMeta(entry.ID, updates); err != nil {
-		return fmt.Errorf("update entry meta: %w", err)
-	}
-
-	return nil
-}
 
 // RenameEntry moves the file to the new name's conventional path and updates
 // the registry, preserving the entry's UUID and other fields.

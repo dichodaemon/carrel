@@ -284,6 +284,16 @@ func (m *MemRegistry) UnlinkEntrySlot(entryID, slotID uuid.UUID) error {
 	return nil
 }
 
+// UnlinkAllEntrySlots implements Registry.
+func (m *MemRegistry) UnlinkAllEntrySlots(entryID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, slotMap := range m.entrySlots {
+		delete(slotMap, entryID)
+	}
+	return nil
+}
+
 func (m *MemRegistry) ResolveEntrySlots(slotID uuid.UUID) ([]SlotEntry, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
