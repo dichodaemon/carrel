@@ -280,8 +280,20 @@ draft. The audit-plan skill (`/audit-plan`) is the single source of
 truth for what a correct plan looks like -- do not re-list its phases
 here.
 
-Fix any errors before proceeding to Phase 5. Warnings need
-acknowledgment but do not block.
+### Step 1: Produce findings
+
+Run the audit-plan checklists and write the findings as an explicit
+output before proceeding. Do not mentally scan and skip.
+
+### Step 2: Fix errors
+
+Fix every error-level finding in the plan before proceeding. Do not
+downgrade an error to avoid fixing it.
+
+### Step 3: Verify fixes
+
+Re-read fixed sections to confirm correctness. Only then proceed to
+Phase 5. Acknowledged warnings are recorded in the Phase 5 summary.
 
 ## Phase 5: Present
 
