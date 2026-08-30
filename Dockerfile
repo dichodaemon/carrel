@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zsh-syntax-highlighting \
         zsh-autosuggestions \
         librsvg2-bin \
+        silversearcher-ag \
     && rm -rf /var/lib/apt/lists/*
 
 # Headless Chromium runtime deps (Puppeteer canonical list from pptr.dev/troubleshooting).
@@ -115,6 +116,16 @@ RUN curl -fsSL "https://github.com/sharkdp/bat/releases/download/v${BAT_VERSION}
     && cp "/tmp/bat-v${BAT_VERSION}-x86_64-unknown-linux-musl/bat" /usr/local/bin/bat \
     && rm -rf /tmp/bat.tar.gz /tmp/bat-*
 
+# trdsql
+ARG TRDSQL_VERSION=1.2.3
+ARG TRDSQL_CHECKSUM=812d1e81f98b6a8b6e7c5f1d8ef8e451d6ea75a14bd8a72c1c2334d7c78d9305
+RUN curl -fsSL "https://github.com/noborus/trdsql/releases/download/v${TRDSQL_VERSION}/trdsql_v${TRDSQL_VERSION}_linux_amd64.zip" \
+        -o /tmp/trdsql.zip \
+    && echo "${TRDSQL_CHECKSUM}  /tmp/trdsql.zip" | sha256sum -c - \
+    && unzip -q /tmp/trdsql.zip -d /tmp \
+    && cp "/tmp/trdsql_v${TRDSQL_VERSION}_linux_amd64/trdsql" /usr/local/bin/trdsql \
+    && rm -rf /tmp/trdsql.zip /tmp/trdsql_*
+
 # delta
 ARG DELTA_VERSION=0.19.2
 ARG DELTA_CHECKSUM=f1ea01ca7728ce3462debc359f39dfc7cbbc1a63224b71fefabf92042864aa1b
@@ -205,7 +216,8 @@ RUN pip3 install --break-system-packages pyright==${PYRIGHT_VERSION} \
         markdownify \
         google-api-python-client \
         google-auth \
-        cairosvg
+        cairosvg \
+        numpy
 
 # Rust toolchain
 ENV RUSTUP_HOME=/usr/local/rustup \
