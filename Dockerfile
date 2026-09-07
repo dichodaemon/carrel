@@ -6,13 +6,16 @@ ENV TERM=xterm-256color
 # Layer 1: System packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
+        cmake \
         curl \
         git \
         jq \
         less \
+        ninja-build \
         openssh-client \
         build-essential \
         libicu-dev \
+        libsdl2-dev \
         python3 \
         python3-pip \
         python3-venv \
