@@ -265,7 +265,7 @@ func runSlotSyncAll(reg registry.Registry, consumerAlias string, dryRun bool, ex
 		if e.Type == registry.TypeAppendSystem {
 			slotName = "APPEND_SYSTEM.md"
 			composeMode = registry.ModeConcatenation
-			destPath = "omp/APPEND_SYSTEM.md"
+			destPath = "APPEND_SYSTEM.md"
 		} else {
 			slotName = e.Name
 			composeMode = registry.ModeOverride

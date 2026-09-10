@@ -178,6 +178,67 @@ func TestSlotSyncAll(t *testing.T) {
 
 }
 
+func TestSlotSyncAllAppendSystemDest(t *testing.T) {
+	dir := t.TempDir()
+	srcDir := filepath.Join(dir, "my-source")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	reg := registry.NewMemRegistry()
+
+	src := registry.Source{
+		ID:    uuid.New(),
+		Alias: "my-source",
+		Path:  srcDir,
+		Scope: registry.ScopeUniversal,
+		Kind:  registry.SourceGitBacked,
+	}
+	if err := reg.RegisterSource(src); err != nil {
+		t.Fatalf("register source: %v", err)
+	}
+
+	consumer := registry.Consumer{
+		ID:         uuid.New(),
+		Alias:      "test-consumer",
+		Path:       filepath.Join(dir, "consumer"),
+		DeployRoot: filepath.Join(dir, "consumer", ".omp"),
+		Kind:       registry.ConsumerRepo,
+	}
+	if err := reg.RegisterConsumer(consumer); err != nil {
+		t.Fatalf("register consumer: %v", err)
+	}
+
+	if err := reg.LinkConsumerSource(consumer.ID, src.ID); err != nil {
+		t.Fatalf("link consumer-source: %v", err)
+	}
+
+	if _, err := authoring.AddEntry(reg, registry.TypeAppendSystem, "APPEND_SYSTEM.md", "my-source", []byte("## Policy\n")); err != nil {
+		t.Fatalf("AddEntry: %v", err)
+	}
+
+	if err := runSlotSyncAll(reg, "test-consumer", false, nil); err != nil {
+		t.Fatalf("runSlotSyncAll: %v", err)
+	}
+
+	slots, err := reg.ResolveSlots(consumer.ID)
+	if err != nil {
+		t.Fatalf("ResolveSlots: %v", err)
+	}
+	if len(slots) != 1 {
+		t.Fatalf("expected 1 slot, got %d", len(slots))
+	}
+	if slots[0].Name != "APPEND_SYSTEM.md" {
+		t.Errorf("expected slot name 'APPEND_SYSTEM.md', got %q", slots[0].Name)
+	}
+	if slots[0].DestPath != "APPEND_SYSTEM.md" {
+		t.Errorf("expected DestPath 'APPEND_SYSTEM.md', got %q (append-system must deploy to .omp/APPEND_SYSTEM.md, not a source subdir)", slots[0].DestPath)
+	}
+	if slots[0].ComposeMode == nil || *slots[0].ComposeMode != registry.ModeConcatenation {
+		t.Errorf("expected ComposeMode concatenation, got %v", slots[0].ComposeMode)
+	}
+}
+
 func TestSlotSyncAllExclude(t *testing.T) {
 	dir := t.TempDir()
 	srcDir := filepath.Join(dir, "my-source")
