@@ -107,6 +107,19 @@ When dispatching subagents (via `task` tool) for beads-tracked work, you **MUST*
 - Memories in MEMORY.md — use `bd remember`.
 - Omitting beads context from subagents.
 
+## Commit convention
+
+The bd git hooks (installed at `.beads/hooks`, wired via `core.hooksPath`) auto-export `.beads/issues.jsonl` on every commit, so the tracked bead state stays in sync without manual steps.
+
+- **Fold the close into the work commit.** Close the bead, then commit the code and the export together — one commit, no separate "chore(beads): close <id>" commit:
+  ```bash
+  BEADS_DB=<path> bd close <id>   # updates the DB + exports issues.jsonl
+  git add -A
+  git commit -m "refactor(...): ... (closes <id>)"
+  ```
+- **Do NOT manually commit the export.** `git add .beads/issues.jsonl` on its own is redundant — the pre-commit hook re-exports it anyway.
+- **Batch across a session.** Close beads as you go, then commit once at a natural checkpoint (or at session end); the export is cumulative.
+
 ## Session Completion
 
 When ending a work session, you **MUST** complete ALL steps below. Work is **NOT** complete until `git push` succeeds.
@@ -117,7 +130,7 @@ When ending a work session, you **MUST** complete ALL steps below. Work is **NOT
 4. Push to remote:
    ```bash
    git pull --rebase
-   bd dolt push
+   bd dolt push  # optional: only if a Dolt remote is configured (local-only otherwise)
    git push
    git status  # MUST show "up to date with origin"
    ```
