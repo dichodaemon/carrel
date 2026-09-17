@@ -29,6 +29,14 @@ RUN pip3 install --break-system-packages \
 # .vendor/. COPY avoids a build-time network/login dependency and makes the
 # version implicit (the file you have IS the version). Installed via apt-get
 # (not dpkg -i) so the X11/XCB dependencies are resolved automatically.
+
+# The .deb's postinst runs `udevadm control --reload-rules` and exits non-zero
+# if it fails. There is no udev daemon in a container, and the rule only matters
+# on the host (bin/udev-jlink.sh), so provide a no-op udevadm. It must live in
+# /usr/bin (dpkg's maintainer-script PATH), not /usr/local/bin.
+RUN printf '%s\n' '#!/bin/sh' 'exit 0' > /usr/bin/udevadm \
+    && chmod +x /usr/bin/udevadm
+
 COPY .vendor/JLink_Linux_*.deb /tmp/jlink.deb
 RUN apt-get update \
     && apt-get install -y --no-install-recommends /tmp/jlink.deb \
