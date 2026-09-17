@@ -13,6 +13,8 @@ FROM carrel-carrel:latest
 # zephyr/scripts/requirements-base.txt): jsonschema/pykwalify/PyYAML
 # (devicetree + module YAML validation), pyelftools (ELF), packaging
 # (version checks), intelhex (hex merge), anytree (ram/rom report), semver.
+# pylink-square is the `jlink` flash runner's Python binding to the J-Link SDK
+# (it finds /opt/SEGGER/JLink/libjlinkarm.so installed by the .deb below).
 RUN pip3 install --break-system-packages \
         west \
         jsonschema \
@@ -22,7 +24,8 @@ RUN pip3 install --break-system-packages \
         packaging \
         intelhex \
         anytree \
-        semver
+        semver \
+        pylink-square
 
 # SEGGER J-Link software (JLinkExe/JLinkGDBServer) for the `jlink` runner.
 # Vendored .deb, gitignored: download once from segger.com and drop it in
