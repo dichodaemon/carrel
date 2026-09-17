@@ -1,0 +1,37 @@
+# docker-compose.hw.yml -- opt-in hardware layer for twang target work.
+# Merge with docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.hw.yml ...
+#
+# carrel-hw = the general carrel environment + Zephyr toolchain + J-Link + USB.
+# It deliberately shares `container_name: carrel` with the general service, so
+# the two variants are mutually exclusive by construction: only one "carrel"
+# container can exist, and starting one while the other is up fails with a
+# Docker name clash.
+
+services:
+  carrel-hw:
+    build:
+      context: .
+      dockerfile: Dockerfile.hw
+    container_name: carrel
+    user: "${UID}:${GID}"
+    volumes:
+      - ${WORKSPACE}:/workspace
+      - ~/.ssh:/home/dev/.ssh:ro
+      - ~/.gitconfig:/home/dev/.gitconfig:ro
+      - ~/.config/gh:/home/dev/.config/gh
+      - ~/.config/doc-fetch:/home/dev/.config/doc-fetch:ro
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 189:* rwm'
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      HOME: /home/dev
+      HINDSIGHT_API_URL: http://hindsight:8888
+      DOCKER_STACK_DIR: /workspace/core-stack
+      ZEPHYR_BASE: /workspace/zephyrproject/zephyr
+      ZEPHYR_SDK_INSTALL_DIR: /workspace/zephyr-sdk/zephyr-sdk-1.0.1
+    networks:
+      - internal
+    restart: unless-stopped
+    command: ["sleep", "infinity"]

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# launch-twang -- bring up the hardware (Zephyr) variant of the carrel container.
+#
+# carrel-hw = the general carrel image + west/Zephyr deps + SEGGER J-Link, with
+# USB passthrough. It deliberately shares `container_name: carrel` with the
+# general service, so the two variants are mutually exclusive by construction:
+# starting one while the other is up fails with a Docker name clash.
+set -e
+cd "$(dirname "$0")/.."
+
+if [[ ! -f .env ]]; then
+    echo "Error: no .env found. Run bin/launch once to generate it." >&2
+    exit 1
+fi
+
+if ! docker compose version &>/dev/null; then
+    echo "Error: 'docker compose' (v2 plugin) is required -- the hw override uses device_cgroup_rules." >&2
+    exit 1
+fi
+
+# Mutual-exclusion guard: fail with a clear message if the GENERAL carrel is up.
+if docker inspect -f '{{.State.Running}}' carrel 2>/dev/null | grep -q true; then
+    img="$(docker inspect -f '{{.Config.Image}}' carrel 2>/dev/null)"
+    if [[ "$img" != *carrel-hw* ]]; then
+        echo "Error: the general 'carrel' container is already running." >&2
+        echo "  Stop it first: bin/terminate" >&2
+        exit 1
+    fi
+    echo "carrel (hw variant) is already running."
+    exit 0
+fi
+
+# Build the base image first (Dockerfile.hw FROMs it).
+docker compose build carrel
+
+# Bring up the hw container + the docker socket-proxy (DOCKER_HOST parity).
+docker compose -f docker-compose.yml -f docker-compose.hw.yml \
+    up -d --build carrel-hw socket-proxy
+
+echo
+echo "carrel (hw variant) is up. Attach with bin/proxy (WezTerm), or:"
+echo "  docker exec -it carrel bash"

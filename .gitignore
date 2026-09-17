@@ -11,6 +11,9 @@
 .omp/
 .env
 
+# Vendored binaries (e.g. SEGGER J-Link .deb) -- download once, gitignored
+.vendor/
+
 # Python
 __pycache__/
 *.pyc

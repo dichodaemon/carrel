@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# terminate -- stop and remove the carrel containers.
+# terminate -- stop and remove the carrel containers (general OR hardware).
+# Merges the hw override so the hw variant (same container_name "carrel",
+# service carrel-hw) is removed too -- a base-only `down` would orphan it.
 set -euo pipefail
 
 CARREL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-docker compose -f "$CARREL_DIR/docker-compose.yml" down
+docker compose -f "$CARREL_DIR/docker-compose.yml" \
+    -f "$CARREL_DIR/docker-compose.hw.yml" down

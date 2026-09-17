@@ -1,0 +1,36 @@
+# twang hardware (Zephyr) toolchain, layered on the general carrel image.
+#
+# Adds what the general image deliberately omits: the Zephyr build CLI (west +
+# its pip deps) and the SEGGER J-Link software (for the EK-RA8D2's onboard
+# debugger, Zephyr's `jlink` runner). The Zephyr SDK + source are NOT baked in
+# here -- they live in the workspace mount (/workspace/zephyr-sdk,
+# /workspace/zephyrproject).
+#
+# Build AFTER the base image exists (docker compose build carrel).
+FROM carrel-carrel:latest
+
+# Zephyr build deps (the build-imported subset of
+# zephyr/scripts/requirements-base.txt): jsonschema/pykwalify/PyYAML
+# (devicetree + module YAML validation), pyelftools (ELF), packaging
+# (version checks), intelhex (hex merge), anytree (ram/rom report), semver.
+RUN pip3 install --break-system-packages \
+        west \
+        jsonschema \
+        pykwalify \
+        PyYAML \
+        pyelftools \
+        packaging \
+        intelhex \
+        anytree \
+        semver
+
+# SEGGER J-Link software (JLinkExe/JLinkGDBServer) for the `jlink` runner.
+# Vendored .deb, gitignored: download once from segger.com and drop it in
+# .vendor/. COPY avoids a build-time network/login dependency and makes the
+# version implicit (the file you have IS the version).
+COPY .vendor/ /tmp/jlink-vendor/
+RUN set -e; \
+    if ! dpkg -i /tmp/jlink-vendor/*.deb; then \
+        apt-get update && apt-get install -y --no-install-recommends -f; \
+    fi; \
+    rm -rf /tmp/jlink-vendor /var/lib/apt/lists/*
