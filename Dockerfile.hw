@@ -27,10 +27,10 @@ RUN pip3 install --break-system-packages \
 # SEGGER J-Link software (JLinkExe/JLinkGDBServer) for the `jlink` runner.
 # Vendored .deb, gitignored: download once from segger.com and drop it in
 # .vendor/. COPY avoids a build-time network/login dependency and makes the
-# version implicit (the file you have IS the version).
-COPY .vendor/ /tmp/jlink-vendor/
-RUN set -e; \
-    if ! dpkg -i /tmp/jlink-vendor/*.deb; then \
-        apt-get update && apt-get install -y --no-install-recommends -f; \
-    fi; \
-    rm -rf /tmp/jlink-vendor /var/lib/apt/lists/*
+# version implicit (the file you have IS the version). Installed via apt-get
+# (not dpkg -i) so the X11/XCB dependencies are resolved automatically.
+COPY .vendor/JLink_Linux_*.deb /tmp/jlink.deb
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends /tmp/jlink.deb \
+    && rm -f /tmp/jlink.deb \
+    && rm -rf /var/lib/apt/lists/*
