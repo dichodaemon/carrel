@@ -45,3 +45,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends /tmp/jlink.deb \
     && rm -f /tmp/jlink.deb \
     && rm -rf /var/lib/apt/lists/*
+
+# USB device verification tooling for the twang spike (and future device work):
+# usbutils = lsusb -v (descriptor/endpoint inspection), alsa-utils = amidi/
+# aconnect (MIDI 2.0 UMP alt-setting checks) + aplay/arecord (UAC2 audio).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        usbutils \
+        alsa-utils \
+    && rm -rf /var/lib/apt/lists/*

@@ -2,7 +2,8 @@
 # Merge with docker-compose.yml:
 #   docker compose -f docker-compose.yml -f docker-compose.hw.yml ...
 #
-# carrel-hw = the general carrel environment + Zephyr toolchain + J-Link + USB.
+# carrel-hw = the general carrel environment + Zephyr toolchain + J-Link +
+# USB + ALSA (sound/MIDI/UMP device passthrough for the board's USB device).
 # It deliberately shares `container_name: carrel` with the general service, so
 # the two variants are mutually exclusive by construction: only one "carrel"
 # container can exist, and starting one while the other is up fails with a
@@ -22,8 +23,12 @@ services:
       - ~/.config/gh:/home/dev/.config/gh
       - ~/.config/doc-fetch:/home/dev/.config/doc-fetch:ro
       - /dev/bus/usb:/dev/bus/usb
+      # ALSA sound/MIDI/UMP nodes created by the board's UAC2+MIDI2 device
+      # (major 116). Bind-mount reflects hotplugged cards into the container.
+      - /dev/snd:/dev/snd
     device_cgroup_rules:
       - 'c 189:* rwm'
+      - 'c 116:* rwm'
     environment:
       DOCKER_HOST: tcp://socket-proxy:2375
       HOME: /home/dev
