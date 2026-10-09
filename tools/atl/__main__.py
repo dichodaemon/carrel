@@ -33,6 +33,11 @@ def _build_parser() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser, a
     p.add_argument("--body", default=None, help="Description text")
     p.add_argument("--parent", default=None, help="Parent issue key (creates a child task)")
     p.add_argument("--assignee", default=None, help="Assignee account ID")
+    p.add_argument("--component", action="append", default=None, dest="components",
+                   help="Component name (repeatable; required by some projects, e.g. FRONTIER)")
+    p.add_argument("--due-date", default=None, help="Due date, YYYY-MM-DD")
+    p.add_argument("--acceptance-criteria", default=None,
+                   help="Acceptance Criteria field text (blank lines separate paragraphs)")
 
     # jira edit
     p = jira_subs.add_parser("edit", help="Edit an issue")
@@ -108,7 +113,9 @@ def _run_jira(client: AtlassianClient, args: argparse.Namespace, jira_parser: ar
     elif cmd == "create":
         body = content.read_body(args.body)
         _out(jira_ops.create_issue(client, args.project, args.type, args.summary, body,
-                                   parent=args.parent, assignee_account_id=args.assignee))
+                                   parent=args.parent, assignee_account_id=args.assignee,
+                                   components=args.components, due_date=args.due_date,
+                                   acceptance_criteria=args.acceptance_criteria))
 
     elif cmd == "edit":
         body = content.read_body(args.body)

@@ -8,19 +8,39 @@ from atl.client import AtlassianClient
 from atl.content import adf_to_text, html_to_markdown, text_to_adf
 
 
+_ACCEPTANCE_CRITERIA = "Acceptance Criteria"
+
+
+def _custom_field_id(client: AtlassianClient, name: str) -> str:
+    """Resolve a field's ID (e.g. ``customfield_10443``) from its display name."""
+    resp = client.get("/rest/api/3/field")
+    for field in resp.json():
+        if field.get("name", "").lower() == name.lower():
+            return field["id"]
+    raise InputError(f"No Jira field named '{name}' on this instance")
+
+
 def get_issue(client: AtlassianClient, key: str) -> dict[str, Any]:
     """Fetch a Jira issue and return a flat summary dict."""
-    resp = client.get(f"/rest/api/3/issue/{key}?expand=renderedFields")
+    resp = client.get(f"/rest/api/3/issue/{key}?expand=renderedFields,names")
     data = resp.json()
     fields = data.get("fields", {})
     rendered = data.get("renderedFields", {})
 
-    # Description: prefer rendered HTML -> markdown, fall back to ADF -> text.
-    desc_html = rendered.get("description")
-    if desc_html:
-        description = html_to_markdown(desc_html)
-    else:
-        description = adf_to_text(fields.get("description"))
+    def rich_text(field_id: Optional[str]) -> str:
+        # Prefer rendered HTML -> markdown, fall back to ADF -> text.
+        if field_id is None:
+            return ""
+        html = rendered.get(field_id)
+        if html:
+            return html_to_markdown(html)
+        return adf_to_text(fields.get(field_id))
+
+    ac_field = next(
+        (fid for fid, fname in data.get("names", {}).items()
+         if fname.lower() == _ACCEPTANCE_CRITERIA.lower()),
+        None,
+    )
 
     assignee = fields.get("assignee")
     priority = fields.get("priority")
@@ -35,8 +55,11 @@ def get_issue(client: AtlassianClient, key: str) -> dict[str, Any]:
         "assignee_account_id": assignee["accountId"] if assignee else None,
         "priority": priority["name"] if priority else None,
         "labels": fields.get("labels", []),
+        "components": [c["name"] for c in fields.get("components") or []],
+        "due_date": fields.get("duedate"),
         "parent": parent["key"] if parent else None,
-        "description": description,
+        "description": rich_text("description"),
+        "acceptance_criteria": rich_text(ac_field),
         "created": fields.get("created"),
         "updated": fields.get("updated"),
         "url": f"{client.instance}/browse/{data['key']}",
@@ -51,12 +74,19 @@ def create_issue(
     description: Optional[str] = None,
     parent: Optional[str] = None,
     assignee_account_id: Optional[str] = None,
+    components: Optional[list[str]] = None,
+    due_date: Optional[str] = None,
+    acceptance_criteria: Optional[str] = None,
 ) -> dict[str, Any]:
     """Create a Jira issue and return ``{key, url}``.
 
     Args:
         parent: Parent issue key (e.g. PROJ-123) to create a child under.
         assignee_account_id: Atlassian account ID to assign the issue to.
+        components: Component names (some projects, e.g. FRONTIER, require one).
+        due_date: ``YYYY-MM-DD``.
+        acceptance_criteria: Text for the "Acceptance Criteria" custom field,
+            resolved by name on the instance.
     """
     fields: dict[str, Any] = {
         "project": {"key": project},
@@ -69,6 +99,13 @@ def create_issue(
         fields["parent"] = {"key": parent}
     if assignee_account_id is not None:
         fields["assignee"] = {"accountId": assignee_account_id}
+    if components:
+        fields["components"] = [{"name": name} for name in components]
+    if due_date is not None:
+        fields["duedate"] = due_date
+    if acceptance_criteria is not None:
+        ac_field = _custom_field_id(client, _ACCEPTANCE_CRITERIA)
+        fields[ac_field] = text_to_adf(acceptance_criteria)
 
     resp = client.post("/rest/api/3/issue", {"fields": fields})
     result = resp.json()

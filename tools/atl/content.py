@@ -99,11 +99,18 @@ def read_body(flag_value: Optional[str]) -> Optional[str]:
 
     Priority:
     1. *flag_value* if not None.
-    2. stdin if it is not a TTY (piped content).
+    2. stdin if it is not a TTY and carries non-whitespace content.
     3. None (no body provided).
+
+    Empty piped stdin counts as "no body": agent and CI shells have a
+    non-TTY stdin even when nothing is piped, and treating that as an empty
+    body would blank the field (e.g. ``jira edit -s`` clearing the
+    description).
     """
     if flag_value is not None:
         return flag_value
     if not sys.stdin.isatty():
-        return sys.stdin.read()
+        piped = sys.stdin.read()
+        if piped.strip():
+            return piped
     return None
