@@ -30,7 +30,7 @@ def _build_parser() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser, a
     p.add_argument("-p", "--project", required=True, help="Project key")
     p.add_argument("-t", "--type", required=True, help="Issue type name")
     p.add_argument("-s", "--summary", required=True, help="Issue summary")
-    p.add_argument("--body", default=None, help="Description text")
+    p.add_argument("--body", default=None, help="Description (markdown)")
     p.add_argument("--parent", default=None, help="Parent issue key (creates a child task)")
     p.add_argument("--assignee", default=None, help="Assignee account ID")
     p.add_argument("--component", action="append", default=None, dest="components",
@@ -43,7 +43,7 @@ def _build_parser() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser, a
     p = jira_subs.add_parser("edit", help="Edit an issue")
     p.add_argument("key", help="Issue key")
     p.add_argument("-s", "--summary", default=None, help="New summary")
-    p.add_argument("--body", default=None, help="New description text")
+    p.add_argument("--body", default=None, help="New description (markdown)")
 
     # jira transition
     p = jira_subs.add_parser("transition", help="Transition an issue")

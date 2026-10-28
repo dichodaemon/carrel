@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from atl import ApiError, InputError
 from atl.client import AtlassianClient
-from atl.content import adf_to_text, html_to_markdown, text_to_adf
+from atl.content import adf_to_text, html_to_markdown, markdown_to_adf
 
 
 _ACCEPTANCE_CRITERIA = "Acceptance Criteria"
@@ -94,7 +94,7 @@ def create_issue(
         "summary": summary,
     }
     if description is not None:
-        fields["description"] = text_to_adf(description)
+        fields["description"] = markdown_to_adf(description)
     if parent is not None:
         fields["parent"] = {"key": parent}
     if assignee_account_id is not None:
@@ -105,7 +105,7 @@ def create_issue(
         fields["duedate"] = due_date
     if acceptance_criteria is not None:
         ac_field = _custom_field_id(client, _ACCEPTANCE_CRITERIA)
-        fields[ac_field] = text_to_adf(acceptance_criteria)
+        fields[ac_field] = markdown_to_adf(acceptance_criteria)
 
     resp = client.post("/rest/api/3/issue", {"fields": fields})
     result = resp.json()
@@ -124,7 +124,7 @@ def edit_issue(
     if summary is not None:
         fields["summary"] = summary
     if description is not None:
-        fields["description"] = text_to_adf(description)
+        fields["description"] = markdown_to_adf(description)
     if not fields:
         raise InputError("Nothing to update. Provide --summary or --body.")
     client.put(f"/rest/api/3/issue/{key}", {"fields": fields})
@@ -192,6 +192,6 @@ def add_comment(
     """Add a comment to an issue and return ``{id}``."""
     resp = client.post(
         f"/rest/api/3/issue/{key}/comment",
-        {"body": text_to_adf(body)},
+        {"body": markdown_to_adf(body)},
     )
     return {"id": resp.json()["id"]}
