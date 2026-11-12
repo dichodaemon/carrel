@@ -3,9 +3,10 @@ name: audit-fix-loop
 description: >
   Repeatedly audit a doc-definition-backed document with independent
   audit-document subagents. Treat their findings as leads, confirm each
-  one against the sources yourself, and fix every confirmed finding
-  everywhere it occurs. Stop when an audit finds no errors or warnings,
-  or when the audit cap is reached.
+  one against the sources yourself, fix every confirmed finding
+  everywhere it occurs, and verify every claim a fix introduces before
+  the next audit. Stop when an audit finds no errors or warnings, or
+  when the audit cap is reached.
   Usage: /audit-fix-loop <path> [--max-audits=N] [--exclude=<topic>...]
 ---
 
@@ -15,11 +16,18 @@ Bring a document to a state where an independent audit finds no errors
 or warnings. Each round, a fresh subagent audits the document with the
 `audit-document` skill. The orchestrating agent confirms every lead
 against the sources itself, fixes each confirmed finding completely,
-and starts the next round. Subagents only produce leads. The
-orchestrator alone is responsible for whether findings are real and
-whether fixes are correct. The failure this skill prevents is the
-incomplete fix: a fact corrected in one place while its other
-statements stay stale, so that each later audit flags another copy.
+verifies the fix, and starts the next round. Subagents only produce
+leads. The orchestrator alone is responsible for whether findings are
+real and whether fixes are correct. This skill prevents three failures:
+
+- **The incomplete fix**: a fact corrected in one place while its other
+  statements stay stale, so that each later audit flags another copy.
+- **The unverified fix**: a fix writes new claims (a symbol, a rule, a
+  criterion, a config field) that nobody checks against the code, so a
+  later audit flags an error the loop itself introduced.
+- **The growing document**: every finding is answered by adding text,
+  and auditors only ask for more, so the document grows round after
+  round while its decisions stay the same.
 
 ## Trigger
 
@@ -36,7 +44,9 @@ auditing and fixing", "loop audits on this document", or invokes
 - `--exclude=<topic>` (optional, repeatable): finding topics the user
   has put out of scope, for example document length. Every auditor is
   told about them and must not report them. The orchestrator discards
-  any finding on an excluded topic.
+  any finding on an excluded topic. Excluding length removes the only
+  outside pressure toward concision; the orchestrator still owns it
+  (Phase 3, Step 4).
 
 ## Phase 0: Setup
 
@@ -46,6 +56,10 @@ Read the `audit-document` skill, the doc definition for the document's
 type, and the full document. Note the document's companions, the code
 it describes and the external sources it cites, such as requirement
 exports. The fixes in Phase 3 are judged against these.
+
+Record the body's word count: the document without its decision-change
+appendix and any other appendix the loop adds. This is the baseline
+for the per-round count in Phase 4.
 
 ### Step 2: Fix the auditor brief
 
@@ -61,7 +75,7 @@ contains:
 - The yardstick: what the document is meant to achieve. Without it, an
   auditor flags deliberate omissions that the document justifies.
 - The exclusions from `--exclude`. Also, if the decision-change
-  appendix (Phase 3, Step 4) exists, a note that it is requested and
+  appendix (Phase 3, Step 7) exists, a note that it is requested and
   must not be flagged.
 - The evidence requirement: every soundness and correctness finding
   cites the source path, line numbers and a short quote, plus the
@@ -70,6 +84,12 @@ contains:
 
 The brief never contains earlier findings, earlier fixes or the
 orchestrator's opinions. Those would bias the audit.
+
+### Step 3: Start the fix ledger
+
+Create a fix ledger outside the document, for example
+`local://<document-stem>_fix-ledger.md`. Phase 3 adds one entry per fix
+and Phase 4 reports from it. The ledger never goes into the document.
 
 ## Phase 1: Audit
 
@@ -123,7 +143,13 @@ severity error or warning remains. A clean round ends the loop (Phase
 
 ## Phase 3: Fix
 
-### Step 1: Map the fan-out of each finding
+### Step 1: Snapshot the document
+
+Before the first edit of the round, copy the document outside the
+repository, for example `local://<document-stem>_round-<N>.md`. Step 8
+and the Phase 4 report diff against this snapshot.
+
+### Step 2: Map the fan-out of each finding in the document
 
 Before editing, search the whole document for every statement of the
 affected fact, rule, name or value: synonyms, paraphrases, tables,
@@ -131,7 +157,20 @@ diagrams, type and config outlines, risks, acceptance criteria,
 approach, open questions and appendices. List every location. A fix
 that misses a location is incomplete.
 
-### Step 2: Classify each fix
+### Step 3: Map the code consumers of each changed contract
+
+A fix that changes a contract also changes what the document says
+about everything that consumes it. A contract is an interface, a rule,
+a config field, a data flow or an acceptance criterion. For each one
+the fix changes, list its consumers in the code: callers, the test
+harness and scene format that will run each criterion, loaders and
+validators, serializers and converters, and other configs that hold the
+same value. Every document statement about a consumer joins the
+Step 2 list. Read each consumer in the source; do not infer it.
+
+### Step 4: Classify and write each fix
+
+Classify each fix:
 
 - **Fact or wording fix**: corrects a claim, a name, a reference or the
   presentation without changing what the document decides. Apply it
@@ -141,21 +180,64 @@ that misses a location is incomplete.
   from 0 to 100 that the change is correct. Base it only on facts you
   confirmed yourself in the sources, never on inference or subagent
   output.
-  - **Above 85**: apply it, and record it in the appendix (Step 4).
+  - **Above 85**: apply it, and record it in the appendix (Step 7).
   - **85 or below**: stop and ask the user. Give the finding, the
     evidence, the proposed change, the alternatives and your
     confidence with its basis. Continue with the other fixes while
     waiting, but do not start the next audit until the answer is in.
 
-### Step 3: Apply all locations in one pass
+Write each fix as short as the doc definition allows:
 
-Edit every location from Step 1 together. Follow the doc definition's
-rules: section structure, citations by section number and name rather
-than line number, glossary terms. Then re-read each edited section in
-full, and every section that refers to it, and confirm they agree with
-each other.
+- **Replace before adding.** Rewrite the wrong statement in place. Add
+  a sentence only when the confirmed finding shows something is
+  missing, and add only that.
+- **Resolve before warning.** Never answer a finding with a new Risk
+  when changing the decision or its text resolves it. Add a Risk only
+  when the decision stands despite the downside, in one or two
+  sentences.
+- **Evidence stays out of the body.** Source paths, symbol names that
+  serve only as proof, data identifiers and measurements go into the
+  appendix entry (Step 7) or the ledger, unless the doc definition
+  requires them in the body.
+- **State each fact once.** Refer to the section that states a fact
+  instead of restating it.
+- **Fix the mechanism, not the clause.** If the fix extends a mechanism
+  that an earlier round already fixed, the earlier fix was incomplete.
+  Re-examine the whole mechanism and rewrite it, instead of adding
+  another clause.
 
-### Step 4: Record decision changes in an appendix
+### Step 5: Apply all locations in one pass
+
+Edit every location from Steps 2 and 3 together. Follow the doc
+definition's rules: section structure, citations by section number and
+name rather than line number, glossary terms. Then re-read each edited
+section in full, and every section that refers to it, and confirm they
+agree with each other.
+
+### Step 6: Verify the fix against the sources
+
+A fix is not done when the edit lands. It is done when every claim it
+introduced or changed is confirmed. Diff the document against the Step
+1 snapshot, and treat each added or changed claim as a new lead under
+Phase 2, Step 1:
+
+- each symbol, path, type and config field exists as stated, or is
+  stated as new;
+- each described behaviour matches the code that implements it;
+- each interface or config rule matches its loaders, validators and
+  other consumers (Step 3);
+- each new or changed acceptance criterion can be run by the harness
+  the document names, with the inputs the harness supports;
+- each number agrees with the other numbers it constrains.
+
+Read the source for each one yourself. A claim that fails goes back to
+Step 4. Record every claim and its evidence in the ledger: per fix, the
+finding it answers, the claims it introduced, the source that confirms
+each, and the body word count it added or removed. A claim without
+evidence in the ledger is unverified, and the round cannot start the
+next audit while one remains.
+
+### Step 7: Record decision changes in an appendix
 
 Keep a final appendix in the document, for example "Appendix A.
 Decision changes during audit". Add one entry per decision change:
@@ -168,6 +250,20 @@ Decision changes during audit". Add one entry per decision change:
 
 Create the appendix with the first decision change. Never remove
 entries.
+
+### Step 8: Check the round's growth and diff
+
+Count the body's words again. If the body grew by more than 5% in the
+round, re-read every addition in the diff and cut each one that a
+confirmed finding does not require.
+
+Optionally, spawn a fresh `reviewer` on the diff alone, with the
+snapshot, the document and the codebase root. Ask it to check only the
+changed text against the sources and the doc definition. Its findings
+are leads: confirm them under Phase 2 and fix them under Phase 3. This
+review does not count toward `--max-audits`. Use it when the round
+changed decisions or contracts, and always in the round that reaches
+the cap, whose fixes no later audit will see.
 
 ## Phase 4: Report
 
@@ -182,12 +278,15 @@ Report to the user:
 
 - One row per round: the audit number, the findings reported, the
   findings confirmed (with severity), the findings rejected (with the
-  reason), and the fixes applied.
+  reason), the fixes applied, and the body word count after the round.
+- The body word count at baseline and at the end, and which fixes
+  account for most of the growth.
 - The decision changes, with their confidence and approval status.
 - Recurring clusters: findings that came back across rounds, and their
-  root cause.
+  root cause. Name the findings caused by an earlier round's fix.
 - The stop reason: a clean audit, or the cap reached with the
-  findings still open.
+  findings still open. If the cap was reached, say whether the last
+  round's fixes were reviewed (Phase 3, Step 8).
 - Anything the user must still decide.
 
 ## Rules
@@ -201,8 +300,15 @@ Report to the user:
   pass earlier findings or fixes to an auditor.
 - **Auditors are read-only.** Only the orchestrator edits the document.
 - **Fix every location.** Map each finding's fan-out across the whole
-  document before editing, edit all locations in one pass, and re-read
-  to confirm consistency.
+  document and across the code that consumes each changed contract,
+  edit all locations in one pass, and re-read to confirm consistency.
+- **Your fixes are leads too.** Every claim a fix introduces is checked
+  against the source and recorded in the ledger with its evidence
+  before the next audit starts.
+- **Replace, don't append.** Fix in place, add only what a confirmed
+  finding requires, keep evidence out of the body, and report the body
+  word count every round. Concision is yours even when length is
+  excluded.
 - **Decision changes need confidence above 85, from confirmed facts.**
   At 85 or below, ask the user. Record every applied decision change in
   the appendix.
