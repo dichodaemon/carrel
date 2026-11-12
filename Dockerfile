@@ -228,7 +228,8 @@ RUN pip3 install --break-system-packages pyright==${PYRIGHT_VERSION} \
         google-api-python-client \
         google-auth \
         cairosvg \
-        numpy
+        numpy \
+        pytest
 
 # Rust toolchain
 ENV RUSTUP_HOME=/usr/local/rustup \
