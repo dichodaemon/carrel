@@ -41,7 +41,8 @@ auditing and fixing", "loop audits on this document", or invokes
 
 ## Arguments
 
-- **path** (required): the document to audit and fix.
+- **path** (required): the document to audit and fix. For an
+  implementation plan, use `audit-plan-fix-loop` instead.
 - `--max-audits=N` (optional, default 10): the most audits to run.
 - `--exclude=<topic>` (optional, repeatable): finding topics the user
   has put out of scope, for example document length. Every auditor is
