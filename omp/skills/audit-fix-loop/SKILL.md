@@ -367,6 +367,16 @@ Report to the user:
   (Phase 3, Step 8).
 - Anything the user must still decide.
 
+### Step 3: Stop at acceptance
+
+When the user accepts the document, change only its status and stop.
+**Approving the document does NOT approve the next step.** It does not
+start an implementation plan, a code investigation for one, tracker
+issues, or any code change. Do not spawn agents, create or claim issues,
+or write files for the next step. Do not offer the next step as if it
+follows automatically. The next step starts only when the user
+explicitly asks for it.
+
 ## Rules
 
 - **Subagents produce leads, never facts.** Agent output is not
@@ -390,5 +400,9 @@ Report to the user:
   and in the code that consumes a changed contract, in one pass.
 - **Decision changes at 85 or below need the user.** Record every
   applied decision change in the appendix.
+- **Acceptance is not a go-ahead.** Approving or accepting the document
+  does NOT mean starting the implementation plan or any other next step.
+  Change the status and stop; wait for an explicit request (Phase 4,
+  Step 3).
 - **No git without approval.** Do not commit or push unless the user
   explicitly asks.
