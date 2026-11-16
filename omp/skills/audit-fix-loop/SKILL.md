@@ -6,7 +6,9 @@ description: >
   one against the sources yourself, fix every confirmed finding
   everywhere it occurs, and verify every claim a fix introduces before
   the next audit. Stop when an audit leaves no confirmed error or
-  warning, when decision changes keep coming, or at the audit cap.
+  warning, after two consecutive audits with no confirmed error, when
+  decision changes keep coming, when fixes keep drawing findings on the
+  loop's own text, or at the audit cap.
   Usage: /audit-fix-loop <path> [--max-audits=N] [--exclude=<topic>...]
 ---
 
@@ -18,7 +20,7 @@ or warnings. Each round, a fresh subagent audits the document with the
 against the sources itself, fixes each confirmed finding completely,
 verifies the fix, and starts the next round. Subagents only produce
 leads. The orchestrator alone is responsible for whether findings are
-real and whether fixes are correct. This skill prevents four failures:
+real and whether fixes are correct. This skill prevents five failures:
 
 - **The incomplete fix**: a fact corrected in one place while its other
   statements stay stale, so that each later audit flags another copy.
@@ -32,6 +34,10 @@ real and whether fixes are correct. This skill prevents four failures:
   per round, because the design still has cases nobody worked out.
   More audits find those cases one at a time; they do not settle the
   design.
+- **The churning fix**: a passage the loop wrote draws a finding, its
+  fix draws the next one, and so on. Later audits then review the
+  loop's own text instead of the document's design, and each rewrite
+  adds edges for the next audit to find.
 
 ## Trigger
 
@@ -156,6 +162,16 @@ in the list:
 
 Record each finding's impact category in the ledger.
 
+Also record each finding's origin and passage. The passage is the
+sentence, bullet, table row or criterion the finding cites, named by
+section and role (for example "§5, truck-814 clearance criterion") so
+that it keeps its name when a fix rewrites it. The origin is
+**original** when the cited text is unchanged since the round-1
+snapshot (Phase 3, Step 1), and **loop-written** when an earlier
+round's fix added or changed it. In round 1 every auditor and Phase 1
+finding is original. Findings of the diff review (Phase 3, Step 8) are
+loop-written by definition.
+
 ### Step 2: Decide whether to stop
 
 - **Unsettled design**: this audit and the two before it each had at
@@ -166,9 +182,24 @@ Record each finding's impact category in the ledger.
   (Phase 4) and ask the user how to proceed, with the decision count
   per audit and the mechanisms affected. If the user says to continue,
   count again from the next audit.
-- **Clean**: otherwise, if no confirmed or partially confirmed finding
-  of severity error or warning remains, stop (Phase 4). Info findings
-  do not block, but fix the confirmed ones anyway.
+- **Churn**: a loop-written passage has a confirmed or partially
+  confirmed finding of severity error or warning in this round, and
+  already had one as loop-written text in an earlier round. Findings
+  from the auditor's report, your own Phase 1 checks and the diff review
+  all count; check again after confirming the diff review's findings.
+  Apply this round's other fixes (Phase 3) but hold the fixes for that
+  passage, then report (Phase 4) and ask the user how to proceed. Name
+  the passage and the chain of findings and fixes that led to it.
+- **Clean**: otherwise, stop when either holds:
+  - no confirmed or partially confirmed finding of severity error or
+    warning remains in this audit; or
+  - this audit and the one before it each had no confirmed or partially
+    confirmed finding of severity error, from the auditor's report or
+    your own Phase 1 checks. Diff-review findings do not count.
+
+  Before stopping, fix this round's confirmed warnings and info
+  findings (Phase 3), then report (Phase 4). Warnings and info do not
+  block, but they are never left unfixed.
 
 Otherwise continue with Phase 3.
 
@@ -178,7 +209,8 @@ Otherwise continue with Phase 3.
 
 Before the first edit of the round, copy the document outside the
 repository, for example `local://<document-stem>_round-<N>.md`. Steps 6
-and 8 diff against this snapshot.
+and 8 diff against this snapshot. The round-1 snapshot is the original
+document, against which Phase 2, Step 1 sets each finding's origin.
 
 ### Step 2: Map the fan-out of each finding in the document
 
@@ -233,11 +265,17 @@ doc definition allows:
   requires them in the body.
 - **State each fact once.** Refer to the section that states a fact
   instead of restating it.
-- **Work out the whole mechanism.** When a fix changes a mechanism that
-  an earlier round already changed, list all of its cases once in the
-  ledger (a table, a worked trace, or every pairing of its inputs),
-  check each against the sources, and rewrite the mechanism from that
-  list instead of adding another clause.
+- **Work out the whole mechanism.** When a fix changes a passage or
+  mechanism that an earlier round already changed, first list all of
+  its cases in the ledger (a table, a worked trace, or every pairing of
+  its inputs), and check each against the sources. Write the fix from
+  that list instead of adding another clause. Step 6 does not pass
+  while the list is missing.
+- **Judge the finding behind an undo.** When a finding asks to undo an
+  earlier fix, re-examine the finding that caused that fix. If it was
+  wrong, revert the earlier fix, and record the reversal and why the
+  earlier finding was wrong in the ledger. If it was right, the two
+  findings conflict: resolve both in one rewrite under the rule above.
 
 ### Step 5: Apply all locations in one pass
 
@@ -294,8 +332,9 @@ answer is in. If the user accepts the size, the current count becomes
 the baseline.
 
 When the round changed a decision, an interface or an acceptance
-criterion, or reaches the cap, spawn a fresh `reviewer` (or `task`) on
-the diff alone, with the snapshot, the document and the codebase root.
+criterion, ends the loop, or reaches the cap, spawn a fresh `reviewer`
+(or `task`) on the diff alone, with the snapshot, the document and the
+codebase root.
 Ask it to check only the changed text against the sources and the doc
 definition. Confirm its findings under Phase 2, Step 1 and fix them
 under Phase 3, Steps 2–7. Do not spawn another review for those fixes.
@@ -314,7 +353,7 @@ If Phase 2, Step 2 did not stop the loop and the audit count is below
 Report to the user:
 
 - One row per round: the audit number, the findings reported, the
-  findings confirmed (with severity and impact category), the
+  findings confirmed (with severity, impact category and origin), the
   decision-category count, the findings rejected (with the reason), and
   the body word count after the round.
 - The body word count at baseline and at the end, and which fixes
@@ -322,8 +361,9 @@ Report to the user:
 - The decision changes, with their confidence and approval status.
 - Recurring clusters: findings that came back across rounds, and their
   root cause. Name the findings caused by an earlier round's fix.
-- The stop reason: a clean audit, an unsettled design, or the cap. If
-  the cap was reached, say whether the last round's fixes were reviewed
+- The stop reason: a clean audit, two consecutive audits with no
+  error, churn, an unsettled design, or the cap. If the loop ended
+  clean or at the cap, say whether the last round's fixes were reviewed
   (Phase 3, Step 8).
 - Anything the user must still decide.
 
@@ -338,9 +378,14 @@ Report to the user:
   introduced lacks evidence in the ledger.
 - **Delete, measure or replace before adding.** Concision is yours even
   when length is excluded.
+- **Two ways to be clean.** One audit with no confirmed error or
+  warning, or two consecutive audits with no confirmed error (Phase 2,
+  Step 2). Confirmed warnings and info are fixed either way.
 - **Stop on an unsettled design.** Three audits in a row with a
   confirmed decision-category finding: stop and ask the user (Phase 2,
   Step 2).
+- **Stop on churn.** A loop-written passage with a confirmed error or
+  warning in a second round: stop and ask the user (Phase 2, Step 2).
 - **Fix every location.** Each fix covers its fan-out in the document
   and in the code that consumes a changed contract, in one pass.
 - **Decision changes at 85 or below need the user.** Record every
